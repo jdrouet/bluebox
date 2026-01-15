@@ -4,3 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+anyhow = "1.0.86"
+hickory-proto = "0.24"
+moka = { version = "0.12.5", features = ["future"] }
+pnet = "0.34.0"
+serde = { version = "1.0", features = ["derive"] }
+tokio = { version = "1.38.0", features = ["full"] }
+toml = "0.8"
