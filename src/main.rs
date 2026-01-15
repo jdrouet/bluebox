@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
-use hickory_proto::op::{Message, Query};
+use hickory_proto::op::{Message, MessageType, OpCode, ResponseCode};
+use hickory_proto::rr::{Name, RData, Record, rdata::A};
 use hickory_proto::serialize::binary::{BinDecodable, BinEncodable};
 use moka::future::Cache;
 use pnet::datalink::{self, Channel, DataLinkSender};
@@ -22,6 +23,23 @@ use tokio::task;
 struct Config {
     upstream_resolver: String,
     cache_ttl_seconds: u64,
+    #[serde(default)]
+    blocklist: Vec<String>,
+}
+
+fn is_blocked(name: &Name, blocklist: &[String]) -> bool {
+    let name_str = name.to_utf8();
+    for pattern in blocklist {
+        if pattern.starts_with("*.") {
+            let suffix = &pattern[1..]; // e.g., ".ads.com"
+            if name_str.ends_with(suffix) {
+                return true;
+            }
+        } else if &name_str == pattern {
+            return true;
+        }
+    }
+    false
 }
 
 fn send_response(
@@ -75,29 +93,51 @@ fn send_response(
 
 async fn resolve_queries(
     query_message: Message,
-    cache: Cache<Query, Message>,
-    upstream_resolver: String,
+    cache: Cache<Name, Message>,
+    config: Arc<Config>,
 ) -> Result<Message> {
     let query = query_message.queries().first().unwrap().clone();
-    if let Some(response) = cache.get(&query).await {
+    let name = query.name();
+
+    // 1. Check blocklist
+    if is_blocked(name, &config.blocklist) {
+        println!("Domain {} is blocked.", name);
+        let mut response = Message::new();
+        response
+            .set_id(query_message.id())
+            .set_message_type(MessageType::Response)
+            .set_op_code(OpCode::Query)
+            .set_response_code(ResponseCode::NoError);
+        let record = Record::from_rdata(
+            name.clone(),
+            300, // TTL
+            RData::A(A(Ipv4Addr::new(127, 0, 0, 1))),
+        );
+        response.add_answer(record);
         return Ok(response);
     }
 
+    // 2. Check cache
+    if let Some(response) = cache.get(name).await {
+        return Ok(response);
+    }
+
+    // 3. Forward to upstream if not in cache or blocked
     let socket = UdpSocket::bind("0.0.0.0:0").await?;
-    socket.connect(upstream_resolver).await?;
+    socket.connect(&config.upstream_resolver).await?;
     socket.send(&query_message.to_bytes()?).await?;
 
     let mut response_bytes = vec![0; 512];
     let len = socket.recv(&mut response_bytes).await?;
     let response_message = Message::from_bytes(&response_bytes[..len])?;
 
-    cache.insert(query.clone(), response_message.clone()).await;
+    cache.insert(name.clone(), response_message.clone()).await;
     Ok(response_message)
 }
 
 async fn run() -> Result<()> {
     let config_str = fs::read_to_string("config.toml").context("Failed to read config.toml")?;
-    let config: Config = toml::from_str(&config_str)?;
+    let config: Arc<Config> = Arc::new(toml::from_str(&config_str)?);
 
     println!("Starting Bluebox DNS interceptor...");
     let interface = datalink::interfaces()
@@ -108,7 +148,7 @@ async fn run() -> Result<()> {
         .context("Failed to find a suitable network interface")?;
     println!("Listening on interface: {}", interface.name.clone());
 
-    let cache: Cache<Query, Message> = Cache::builder()
+    let cache: Cache<Name, Message> = Cache::builder()
         .time_to_live(Duration::from_secs(config.cache_ttl_seconds))
         .build();
 
@@ -133,7 +173,7 @@ async fn run() -> Result<()> {
         }
     });
 
-    let upstream_resolver = config.upstream_resolver.clone();
+    let config_clone = config.clone();
     let packet_handler = tokio::spawn(async move {
         while let Some(packet) = packet_rx.recv().await {
             let ethernet_packet = if let Some(p) = EthernetPacket::new(&packet) {
@@ -159,7 +199,7 @@ async fn run() -> Result<()> {
             if udp_packet.get_destination() == 53 {
                 if let Ok(message) = Message::from_bytes(udp_packet.payload()) {
                     if let Ok(response) =
-                        resolve_queries(message, cache.clone(), upstream_resolver.clone()).await
+                        resolve_queries(message, cache.clone(), config_clone.clone()).await
                     {
                         send_response(
                             &mut datalink_tx,
@@ -194,4 +234,35 @@ async fn run() -> Result<()> {
 #[tokio::main]
 async fn main() -> Result<()> {
     run().await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::str::FromStr;
+
+    #[test]
+    fn test_is_blocked() {
+        let blocklist = vec!["google.com".to_string(), "*.ads.com".to_string()];
+
+        // Exact match
+        let name = Name::from_str("google.com").unwrap();
+        assert!(is_blocked(&name, &blocklist));
+
+        // Wildcard match
+        let name = Name::from_str("analytics.ads.com").unwrap();
+        assert!(is_blocked(&name, &blocklist));
+
+        // Subdomain of wildcard
+        let name = Name::from_str("sub.analytics.ads.com").unwrap();
+        assert!(is_blocked(&name, &blocklist));
+
+        // Not blocked
+        let name = Name::from_str("rust-lang.org").unwrap();
+        assert!(!is_blocked(&name, &blocklist));
+
+        // Partial match (should not be blocked)
+        let name = Name::from_str("ads.com").unwrap();
+        assert!(!is_blocked(&name, &blocklist));
+    }
 }
