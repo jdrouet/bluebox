@@ -1,3 +1,4 @@
+# interface = "en0"
 upstream_resolver = "1.1.1.1:53"
 cache_ttl_seconds = 300
 blocklist = ["*.facebook.com", "facebook.com", "*.ad.com"]
