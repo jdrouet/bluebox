@@ -60,11 +60,11 @@ impl Config {
     /// Load configuration from a TOML file.
     pub fn load(path: impl AsRef<Path>) -> Result<Self> {
         let content = std::fs::read_to_string(path).map_err(ConfigError::ReadFile)?;
-        Self::from_str(&content)
+        Self::parse(&content)
     }
 
     /// Parse configuration from a TOML string.
-    pub fn from_str(content: &str) -> Result<Self> {
+    pub fn parse(content: &str) -> Result<Self> {
         let config: Self = toml::from_str(content).map_err(ConfigError::Parse)?;
         config.validate()?;
         Ok(config)
@@ -113,7 +113,7 @@ mod tests {
             blocklist = ["example.com", "*.ads.com"]
         "#;
 
-        let config = Config::from_str(toml).unwrap();
+        let config = Config::parse(toml).unwrap();
         assert_eq!(config.upstream_resolver.to_string(), "1.1.1.1:53");
         assert_eq!(config.cache_ttl_seconds, 600);
         assert_eq!(config.blocklist.len(), 2);
@@ -127,7 +127,7 @@ mod tests {
             upstream_resolver = "8.8.8.8:53"
         "#;
 
-        let config = Config::from_str(toml).unwrap();
+        let config = Config::parse(toml).unwrap();
         assert_eq!(config.interface.as_deref(), Some("eth0"));
     }
 
@@ -137,7 +137,7 @@ mod tests {
             upstream_resolver = "1.1.1.1:53"
         "#;
 
-        let config = Config::from_str(toml).unwrap();
+        let config = Config::parse(toml).unwrap();
         assert_eq!(config.cache_ttl_seconds, 300);
         assert_eq!(config.buffer_pool_size, 64);
         assert_eq!(config.channel_capacity, 1000);
@@ -150,7 +150,7 @@ mod tests {
             upstream_resolver = "not-an-address"
         "#;
 
-        assert!(Config::from_str(toml).is_err());
+        assert!(Config::parse(toml).is_err());
     }
 
     #[test]
@@ -160,7 +160,7 @@ mod tests {
             cache_ttl_seconds = 0
         "#;
 
-        assert!(Config::from_str(toml).is_err());
+        assert!(Config::parse(toml).is_err());
     }
 
     #[test]
@@ -170,7 +170,7 @@ mod tests {
             blocklist = ["example.com", ""]
         "#;
 
-        assert!(Config::from_str(toml).is_err());
+        assert!(Config::parse(toml).is_err());
     }
 
     #[test]
@@ -180,6 +180,6 @@ mod tests {
             unknown_field = "value"
         "#;
 
-        assert!(Config::from_str(toml).is_err());
+        assert!(Config::parse(toml).is_err());
     }
 }

@@ -3,6 +3,10 @@
 //! Builds complete Ethernet frames with proper checksums for
 //! both IPv4 and IPv6 responses.
 
+// DNS packets are always small (max 512 bytes for standard UDP DNS),
+// so these casts from usize to u16 are safe and will never truncate.
+#![allow(clippy::cast_possible_truncation)]
+
 use std::net::IpAddr;
 
 use hickory_proto::op::Message;

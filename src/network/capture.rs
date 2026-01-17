@@ -70,7 +70,7 @@ pub struct PnetCapture {
 impl PnetCapture {
     /// Create a new capture for the given interface.
     pub fn new(interface: &NetworkInterface) -> Result<(Self, PnetSender)> {
-        let (tx, rx) = match datalink::channel(interface, Default::default()) {
+        let (tx, rx) = match datalink::channel(interface, pnet::datalink::Config::default()) {
             Ok(Channel::Ethernet(tx, rx)) => (tx, rx),
             Ok(_) => return Err(NetworkError::UnsupportedChannel.into()),
             Err(e) => return Err(NetworkError::ChannelOpen(e.to_string()).into()),
