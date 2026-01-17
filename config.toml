@@ -1,4 +1,48 @@
-# interface = "en0"
+# Bluebox DNS Interceptor Configuration
+
+# Network interface to listen on (optional, auto-detected if not specified)
+# interface = "eth0"
+
+# Upstream DNS resolver to forward non-blocked queries to
 upstream_resolver = "1.1.1.1:53"
+
+# How long to cache DNS responses (in seconds)
 cache_ttl_seconds = 300
-blocklist = ["*.facebook.com", "facebook.com", "*.ad.com"]
+
+# Domains to block
+# Supports exact matches ("facebook.com") and wildcards ("*.facebook.com")
+blocklist = [
+    # Block Facebook and Instagram
+    "*.facebook.com",
+    "facebook.com",
+    "*.instagram.com",
+    "instagram.com",
+
+    # Block common ad domains
+    "*.ad.com",
+    "*.doubleclick.net",
+    "*.googlesyndication.com",
+]
+
+# ARP spoofing configuration for transparent DNS interception
+# When enabled, Bluebox will intercept DNS queries from ALL devices on the network
+# without requiring any client configuration
+[arp_spoof]
+# Enable ARP spoofing (requires root privileges)
+enabled = false
+
+# Gateway (router) IP address to impersonate
+# If not specified, Bluebox will auto-detect the default gateway
+# gateway_ip = "192.168.1.1"
+
+# How often to send ARP spoof packets (in seconds)
+# Lower values = more reliable interception, but more network traffic
+spoof_interval_secs = 2
+
+# Restore ARP tables when Bluebox shuts down
+# This prevents network disruption after stopping the service
+restore_on_shutdown = true
+
+# Forward non-DNS traffic to the real gateway
+# This must be true for devices to maintain internet connectivity
+forward_traffic = true

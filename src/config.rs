@@ -1,6 +1,6 @@
 //! Configuration loading and validation.
 
-use std::net::SocketAddr;
+use std::net::{Ipv4Addr, SocketAddr};
 use std::path::Path;
 
 use serde::Deserialize;
@@ -34,6 +34,47 @@ pub struct Config {
     /// Channel capacity for packet queue.
     #[serde(default = "default_channel_capacity")]
     pub channel_capacity: usize,
+
+    /// ARP spoofing configuration for transparent DNS interception.
+    #[serde(default)]
+    pub arp_spoof: ArpSpoofSettings,
+}
+
+/// ARP spoofing settings for transparent DNS interception.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ArpSpoofSettings {
+    /// Enable ARP spoofing for transparent interception.
+    /// When enabled, the server will impersonate the gateway to intercept DNS queries.
+    #[serde(default)]
+    pub enabled: bool,
+
+    /// Gateway IP address to impersonate. If None, auto-detect.
+    pub gateway_ip: Option<Ipv4Addr>,
+
+    /// Interval in seconds between ARP spoof packets.
+    #[serde(default = "default_spoof_interval")]
+    pub spoof_interval_secs: u64,
+
+    /// Whether to restore ARP tables when shutting down.
+    #[serde(default = "default_restore_on_shutdown")]
+    pub restore_on_shutdown: bool,
+
+    /// Forward non-DNS traffic to the real gateway.
+    #[serde(default = "default_forward_traffic")]
+    pub forward_traffic: bool,
+}
+
+impl Default for ArpSpoofSettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            gateway_ip: None,
+            spoof_interval_secs: default_spoof_interval(),
+            restore_on_shutdown: default_restore_on_shutdown(),
+            forward_traffic: default_forward_traffic(),
+        }
+    }
 }
 
 const fn default_cache_ttl() -> u64 {
@@ -46,6 +87,18 @@ const fn default_buffer_pool_size() -> usize {
 
 const fn default_channel_capacity() -> usize {
     1000
+}
+
+const fn default_spoof_interval() -> u64 {
+    2
+}
+
+const fn default_restore_on_shutdown() -> bool {
+    true
+}
+
+const fn default_forward_traffic() -> bool {
+    true
 }
 
 fn deserialize_socket_addr<'de, D>(deserializer: D) -> std::result::Result<SocketAddr, D::Error>
@@ -82,6 +135,13 @@ impl Config {
 
         if self.channel_capacity == 0 {
             return Err(ConfigError::Validation("channel_capacity must be > 0".into()).into());
+        }
+
+        if self.arp_spoof.spoof_interval_secs == 0 {
+            return Err(ConfigError::Validation(
+                "arp_spoof.spoof_interval_secs must be > 0".into(),
+            )
+            .into());
         }
 
         // Validate blocklist patterns
@@ -142,6 +202,48 @@ mod tests {
         assert_eq!(config.buffer_pool_size, 64);
         assert_eq!(config.channel_capacity, 1000);
         assert!(config.blocklist.is_empty());
+        assert!(!config.arp_spoof.enabled);
+    }
+
+    #[test]
+    fn test_arp_spoof_config() {
+        let toml = r#"
+            upstream_resolver = "1.1.1.1:53"
+
+            [arp_spoof]
+            enabled = true
+            gateway_ip = "192.168.1.1"
+            spoof_interval_secs = 5
+            restore_on_shutdown = true
+            forward_traffic = true
+        "#;
+
+        let config = Config::parse(toml).unwrap();
+        assert!(config.arp_spoof.enabled);
+        assert_eq!(
+            config.arp_spoof.gateway_ip,
+            Some(Ipv4Addr::new(192, 168, 1, 1))
+        );
+        assert_eq!(config.arp_spoof.spoof_interval_secs, 5);
+        assert!(config.arp_spoof.restore_on_shutdown);
+        assert!(config.arp_spoof.forward_traffic);
+    }
+
+    #[test]
+    fn test_arp_spoof_defaults() {
+        let toml = r#"
+            upstream_resolver = "1.1.1.1:53"
+
+            [arp_spoof]
+            enabled = true
+        "#;
+
+        let config = Config::parse(toml).unwrap();
+        assert!(config.arp_spoof.enabled);
+        assert!(config.arp_spoof.gateway_ip.is_none());
+        assert_eq!(config.arp_spoof.spoof_interval_secs, 2);
+        assert!(config.arp_spoof.restore_on_shutdown);
+        assert!(config.arp_spoof.forward_traffic);
     }
 
     #[test]
@@ -178,6 +280,19 @@ mod tests {
         let toml = r#"
             upstream_resolver = "1.1.1.1:53"
             unknown_field = "value"
+        "#;
+
+        assert!(Config::parse(toml).is_err());
+    }
+
+    #[test]
+    fn test_zero_spoof_interval_rejected() {
+        let toml = r#"
+            upstream_resolver = "1.1.1.1:53"
+
+            [arp_spoof]
+            enabled = true
+            spoof_interval_secs = 0
         "#;
 
         assert!(Config::parse(toml).is_err());
