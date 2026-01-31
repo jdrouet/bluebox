@@ -14,10 +14,11 @@ use anyhow::{Context, Result};
 use parking_lot::Mutex;
 use tokio::sync::mpsc;
 use tokio::task;
-use tracing::{info, warn};
+use tracing::{debug, error, info, warn};
 
+use bluebox::blocklist::loader::FileLoader;
 use bluebox::cache::MokaCache;
-use bluebox::config::Config;
+use bluebox::config::{BlocklistSourceType, Config};
 use bluebox::dns::{Blocker, UpstreamResolver};
 use bluebox::network::arp::{ArpSpoofConfig, ArpSpoofer};
 use bluebox::network::forward;
@@ -27,6 +28,56 @@ use bluebox::network::{
 };
 use bluebox::server::{QueryHandler, run_server};
 
+/// Load blocklists from all configured sources.
+///
+/// Starts with inline patterns from the config, then loads from each enabled
+/// blocklist source. Missing or inaccessible files log errors but don't crash.
+async fn load_blocklists(config: &Config) -> Vec<String> {
+    // Start with inline patterns
+    let mut all_patterns = config.blocklist.clone();
+
+    for source in &config.blocklist_sources {
+        if !source.enabled {
+            debug!(name = ?source.name, "skipping disabled blocklist");
+            continue;
+        }
+
+        match &source.source {
+            BlocklistSourceType::File { path } => {
+                info!(
+                    name = ?source.name,
+                    path = ?path,
+                    "loading blocklist from file"
+                );
+                match FileLoader::load(path, source.format).await {
+                    Ok(patterns) => {
+                        info!(
+                            name = ?source.name,
+                            count = patterns.len(),
+                            "loaded blocklist"
+                        );
+                        all_patterns.extend(patterns);
+                    }
+                    Err(e) => {
+                        error!(
+                            name = ?source.name,
+                            error = ?e,
+                            "failed to load blocklist"
+                        );
+                        // Continue with other sources
+                    }
+                }
+            }
+            BlocklistSourceType::Remote { .. } => {
+                // Remote sources are handled separately (future issue)
+                debug!(name = ?source.name, "skipping remote blocklist source");
+            }
+        }
+    }
+
+    all_patterns
+}
+
 #[allow(clippy::too_many_lines, reason = "will split later")]
 async fn run() -> Result<()> {
     let config = Config::load("config.toml").context("Failed to load configuration")?;
@@ -34,7 +85,15 @@ async fn run() -> Result<()> {
     info!("Starting Bluebox DNS interceptor...");
     info!("Upstream resolver: {}", config.upstream_resolver);
     info!("Cache TTL: {} seconds", config.cache_ttl_seconds);
-    info!("Blocklist entries: {}", config.blocklist.len());
+    info!("Inline blocklist entries: {}", config.blocklist.len());
+    info!(
+        "Blocklist sources configured: {}",
+        config.blocklist_sources.len()
+    );
+
+    // Load blocklists from all sources
+    let all_patterns = load_blocklists(&config).await;
+    info!("Total blocklist patterns loaded: {}", all_patterns.len());
 
     // Find network interface
     let interface =
@@ -49,7 +108,7 @@ async fn run() -> Result<()> {
     // Initialize components
     let cache = MokaCache::new(Duration::from_secs(config.cache_ttl_seconds));
     let resolver = UpstreamResolver::new(config.upstream_resolver);
-    let blocker = Blocker::new(&config.blocklist);
+    let blocker = Blocker::new(&all_patterns);
     let buffer_pool = BufferPool::new(config.buffer_pool_size);
 
     info!("Blocker initialized with {} patterns", blocker.len());
