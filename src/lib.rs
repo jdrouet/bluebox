@@ -29,6 +29,7 @@
 //! assert!(blocker.is_blocked(&"tracking.ads.com".parse().unwrap()));
 //! ```
 
+pub mod blocklist;
 pub mod cache;
 pub mod config;
 pub mod dns;

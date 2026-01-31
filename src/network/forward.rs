@@ -159,7 +159,7 @@ mod tests {
 
     #[test]
     #[allow(clippy::similar_names, reason = "https and http, come on...")]
-    fn test_should_forward_dns_query() {
+    fn should_not_forward_dns_queries_but_forward_other_traffic() {
         let our_ip = Ipv4Addr::new(192, 168, 1, 100);
         let client_ip = Ipv4Addr::new(192, 168, 1, 50);
 
@@ -177,7 +177,7 @@ mod tests {
     }
 
     #[test]
-    fn test_should_not_forward_own_packets() {
+    fn should_not_forward_packets_from_own_ip() {
         let our_ip = Ipv4Addr::new(192, 168, 1, 100);
 
         // Packets from ourselves should not be forwarded
@@ -186,14 +186,14 @@ mod tests {
     }
 
     #[test]
-    fn test_get_destination_ip() {
+    fn should_extract_destination_ip_from_packet() {
         let packet = build_test_packet(80, Ipv4Addr::new(192, 168, 1, 50));
         let dest = get_destination_ip(&packet);
         assert_eq!(dest, Some(Ipv4Addr::new(192, 168, 1, 1)));
     }
 
     #[test]
-    fn test_get_source_ip() {
+    fn should_extract_source_ip_from_packet() {
         let src_ip = Ipv4Addr::new(192, 168, 1, 50);
         let packet = build_test_packet(80, src_ip);
         let src = get_source_ip(&packet);

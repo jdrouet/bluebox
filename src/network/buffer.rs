@@ -149,7 +149,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_buffer_pool_basic() {
+    fn should_get_and_return_buffers_to_pool() {
         let pool = BufferPool::new(4);
         assert_eq!(pool.available(), 4);
 
@@ -167,7 +167,7 @@ mod tests {
     }
 
     #[test]
-    fn test_buffer_pool_exhaustion() {
+    fn should_allocate_new_buffer_when_pool_exhausted() {
         let pool = BufferPool::new(2);
 
         let _buf1 = pool.get();
@@ -180,7 +180,7 @@ mod tests {
     }
 
     #[test]
-    fn test_pooled_buffer_operations() {
+    fn should_support_resize_and_clear_operations() {
         let pool = BufferPool::new(1);
         let mut buf = pool.get();
 
@@ -197,7 +197,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_zeroed() {
+    fn should_return_zeroed_buffer_of_specified_length() {
         let pool = BufferPool::new(1);
         let buf = pool.get_zeroed(50);
 
@@ -206,7 +206,7 @@ mod tests {
     }
 
     #[test]
-    fn test_buffer_pool_clone() {
+    fn should_share_underlying_pool_when_cloned() {
         let pool1 = BufferPool::new(4);
         let pool2 = pool1.clone();
 

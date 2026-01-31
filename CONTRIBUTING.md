@@ -86,6 +86,29 @@ src/
 
 ## Testing
 
+### Test Naming Convention
+
+Test functions should describe what they're testing using the pattern `should_X_when_Y` rather than starting with `test_`. This makes test output more readable and self-documenting.
+
+```rust
+// Good - describes the expected behavior
+#[test]
+fn should_block_domain_when_exact_match() { ... }
+
+#[test]
+fn should_return_empty_vec_when_file_is_empty() { ... }
+
+#[test]
+fn should_skip_comments_when_line_starts_with_hash() { ... }
+
+// Avoid - doesn't describe the behavior
+#[test]
+fn test_blocker() { ... }
+
+#[test]
+fn test_empty_file() { ... }
+```
+
 ### Unit Tests
 
 Each module contains its own unit tests. Run them with:
@@ -153,7 +176,7 @@ impl DnsResolver for DohResolver {
 #[cfg(test)]
 mod tests {
     #[tokio::test]
-    async fn test_doh_resolver() {
+    async fn should_resolve_query_when_upstream_available() {
         // Test with mock HTTP client
     }
 }

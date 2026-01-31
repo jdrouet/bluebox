@@ -59,7 +59,7 @@ impl DnsResolver for TestResolver {
 }
 
 #[tokio::test]
-async fn test_full_query_flow_allowed_domain() {
+async fn should_resolve_allowed_domain_from_upstream() {
     let cache = MokaCache::new(Duration::from_secs(60));
     let resolver = TestResolver::new(Ipv4Addr::new(93, 184, 216, 34));
     let blocker = Blocker::new(["blocked.com"]);
@@ -81,7 +81,7 @@ async fn test_full_query_flow_allowed_domain() {
 }
 
 #[tokio::test]
-async fn test_full_query_flow_blocked_domain() {
+async fn should_return_localhost_for_blocked_domains() {
     let cache = MokaCache::new(Duration::from_secs(60));
     let resolver = TestResolver::new(Ipv4Addr::new(1, 2, 3, 4));
     let blocker = Blocker::new(["blocked.com", "*.ads.net"]);
@@ -111,7 +111,7 @@ async fn test_full_query_flow_blocked_domain() {
 }
 
 #[tokio::test]
-async fn test_cache_behavior() {
+async fn should_cache_responses_and_update_query_id() {
     let cache = MokaCache::new(Duration::from_secs(60));
     let resolver = TestResolver::new(Ipv4Addr::new(1, 2, 3, 4));
     let blocker = Blocker::default();
@@ -135,7 +135,7 @@ async fn test_cache_behavior() {
 }
 
 #[tokio::test]
-async fn test_multiple_query_types() {
+async fn should_return_correct_localhost_for_each_query_type() {
     let cache = MokaCache::new(Duration::from_secs(60));
     let resolver = TestResolver::new(Ipv4Addr::new(1, 2, 3, 4));
     let blocker = Blocker::new(["blocked.com"]);
@@ -160,7 +160,7 @@ async fn test_multiple_query_types() {
 }
 
 #[tokio::test]
-async fn test_buffer_pool_integration() {
+async fn should_manage_buffer_pool_correctly() {
     let pool = BufferPool::new(4);
 
     // Get multiple buffers

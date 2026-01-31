@@ -437,7 +437,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_arp_table() {
+    fn should_store_and_retrieve_arp_entries() {
         let table = ArpTable::new();
         let ip = Ipv4Addr::new(192, 168, 1, 100);
         let mac = MacAddr::new(0x11, 0x22, 0x33, 0x44, 0x55, 0x66);
@@ -449,7 +449,7 @@ mod tests {
     }
 
     #[test]
-    fn test_arp_packet_builder() {
+    fn should_build_valid_arp_request_and_gratuitous_packets() {
         let config = ArpSpoofConfig {
             gateway_ip: Ipv4Addr::new(192, 168, 1, 1),
             our_ip: Ipv4Addr::new(192, 168, 1, 100),
@@ -478,7 +478,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_arp_packet() {
+    fn should_parse_arp_packet_and_extract_host_info() {
         let config = ArpSpoofConfig {
             gateway_ip: Ipv4Addr::new(192, 168, 1, 1),
             our_ip: Ipv4Addr::new(192, 168, 1, 100),
