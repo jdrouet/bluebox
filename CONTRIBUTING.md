@@ -45,6 +45,65 @@ We use pedantic clippy lints. The full configuration is in `Cargo.toml`. Key rul
 - No unsafe code (`unsafe_code = "forbid"`)
 - All warnings treated as errors in CI
 
+### Naming Conventions
+
+**Error variables**: Use descriptive names for error variables, not single letters.
+
+```rust
+// Good
+if let Err(err) = operation() {
+    warn!("Operation failed: {}", err);
+}
+
+match result {
+    Ok(value) => process(value),
+    Err(load_err) => handle_error(load_err),
+}
+
+// Avoid
+if let Err(e) = operation() {
+    warn!("Operation failed: {}", e);
+}
+```
+
+### Comments
+
+Avoid large separator comments or ASCII art banners. Use simple doc comments and let the code structure speak for itself.
+
+```rust
+// Good - simple module documentation
+/// Handles blocklist loading from various sources.
+
+// Avoid - decorative separators
+// =============================================================================
+// Blocklist Loading
+// =============================================================================
+```
+
+### String Formatting
+
+Use inline format syntax (captured identifiers) instead of positional arguments when possible. This is more concise and readable.
+
+```rust
+// Good - inline format syntax
+format!("{value:?}");
+println!("Hello {name}!");
+error!("Failed to load: {err}");
+
+// Avoid - positional arguments
+format!("{:?}", value);
+println!("Hello {}!", name);
+error!("Failed to load: {}", err);
+```
+
+Note: Inline syntax only works with simple identifiers. For method calls or field access, positional arguments are still required:
+
+```rust
+// These require positional arguments (method calls / field access)
+info!("Count: {}", items.len());
+info!("Name: {}", config.name);
+```
+
 ## Architecture
 
 The codebase is organized into modules with clear responsibilities:
