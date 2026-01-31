@@ -57,6 +57,15 @@ blocklist = [
 # - macOS: ~/Library/Caches/bluebox/blocklists/
 # blocklist_cache_dir = "/var/cache/bluebox/blocklists"
 
+# Metrics configuration for Prometheus exporter
+[metrics]
+# Enable metrics collection and Prometheus HTTP endpoint
+enabled = false
+
+# Address to listen on for Prometheus scrape requests
+# Default: "0.0.0.0:9090"
+listen = "0.0.0.0:9090"
+
 # ARP spoofing configuration for transparent DNS interception
 # When enabled, Bluebox will intercept DNS queries from ALL devices on the network
 # without requiring any client configuration
