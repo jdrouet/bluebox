@@ -73,6 +73,16 @@ src/
 2. **Minimize allocations**: Use buffer pools and avoid unnecessary heap allocations
 3. **Testability**: Every module should be testable without network access
 4. **Clear error handling**: Use `thiserror` for typed errors
+5. **Debug formatting**: In error messages and logs, prefer `{:?}` over `{}` for interpolating values. This ensures consistent debug output and avoids potential issues with Display implementations.
+
+   ```rust
+   // Good
+   tracing::error!(name = ?source.name, "failed to load blocklist");
+   return Err(ValidationError::InvalidUrl { url: url.clone() });
+   
+   // Avoid
+   tracing::error!("failed to load blocklist: {}", source.name);
+   ```
 
 ## Testing
 
