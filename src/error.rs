@@ -22,6 +22,9 @@ pub enum Error {
 
     #[error("I/O error: {0}")]
     Io(#[from] io::Error),
+
+    #[error("metrics error: {0}")]
+    Metrics(String),
 }
 
 /// Configuration-related errors.
