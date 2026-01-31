@@ -335,4 +335,27 @@ mod tests {
         let response = handler2.handle_query(query).await.unwrap();
         assert_eq!(response.answers().len(), 1);
     }
+
+    #[test]
+    fn test_server_config_default() {
+        let config = ServerConfig::default();
+        assert_eq!(config.channel_capacity, 1000);
+        assert_eq!(config.buffer_pool_size, 64);
+    }
+
+    #[tokio::test]
+    async fn test_query_handler_empty_query() {
+        let cache = MockCache::new();
+        let resolver = MockResolver::new();
+        let blocker = Blocker::default();
+
+        let handler = QueryHandler::new(cache, resolver, blocker);
+
+        // Create a message with no queries
+        let empty_query = Message::new();
+        let response = handler.handle_query(empty_query.clone()).await.unwrap();
+
+        // Should return the same message since there's no query to process
+        assert_eq!(response.id(), empty_query.id());
+    }
 }

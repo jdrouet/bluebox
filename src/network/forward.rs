@@ -41,13 +41,12 @@ pub fn should_forward(frame: &[u8], our_ip: Ipv4Addr) -> bool {
     }
 
     // Check if this is a DNS query (UDP port 53)
-    if ipv4.get_next_level_protocol() == pnet::packet::ip::IpNextHeaderProtocols::Udp {
-        if let Some(udp) = UdpPacket::new(ipv4.payload()) {
-            if udp.get_destination() == 53 {
-                // This is a DNS query - don't forward, we'll handle it
-                return false;
-            }
-        }
+    if ipv4.get_next_level_protocol() == pnet::packet::ip::IpNextHeaderProtocols::Udp
+        && let Some(udp) = UdpPacket::new(ipv4.payload())
+        && udp.get_destination() == 53
+    {
+        // This is a DNS query - don't forward, we'll handle it
+        return false;
     }
 
     // Forward everything else
@@ -159,6 +158,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::similar_names, reason = "https and http, come on...")]
     fn test_should_forward_dns_query() {
         let our_ip = Ipv4Addr::new(192, 168, 1, 100);
         let client_ip = Ipv4Addr::new(192, 168, 1, 50);

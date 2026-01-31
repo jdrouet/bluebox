@@ -27,6 +27,7 @@ use bluebox::network::{
 };
 use bluebox::server::{QueryHandler, run_server};
 
+#[allow(clippy::too_many_lines, reason = "will split later")]
 async fn run() -> Result<()> {
     let config = Config::load("config.toml").context("Failed to load configuration")?;
 
@@ -62,16 +63,13 @@ async fn run() -> Result<()> {
         info!("ARP spoofing enabled - configuring transparent interception");
 
         // Detect or use configured gateway
-        let gateway_ip = match config.arp_spoof.gateway_ip {
-            Some(ip) => {
-                info!("Using configured gateway IP: {}", ip);
-                ip
-            }
-            None => {
-                let detected = detect_gateway().context("Failed to detect gateway")?;
-                info!("Auto-detected gateway IP: {}", detected);
-                detected
-            }
+        let gateway_ip = if let Some(ip) = config.arp_spoof.gateway_ip {
+            info!("Using configured gateway IP: {}", ip);
+            ip
+        } else {
+            let detected = detect_gateway().context("Failed to detect gateway")?;
+            info!("Auto-detected gateway IP: {}", detected);
+            detected
         };
 
         // Create a second sender for ARP spoofing
@@ -86,7 +84,7 @@ async fn run() -> Result<()> {
             restore_on_shutdown: config.arp_spoof.restore_on_shutdown,
         };
 
-        let mut spoofer = ArpSpoofer::new(arp_config.clone(), arp_sender);
+        let mut spoofer = ArpSpoofer::new(arp_config, arp_sender);
 
         // Discover the gateway's MAC address
         spoofer
@@ -113,9 +111,8 @@ async fn run() -> Result<()> {
     let spoof_interval = Duration::from_secs(config.arp_spoof.spoof_interval_secs);
 
     // Spawn ARP spoofing task if enabled
-    let arp_handle = if arp_spoofer_for_task.is_some() {
-        let spoofer = arp_spoofer_for_task.unwrap();
-        Some(tokio::spawn(async move {
+    let arp_handle = arp_spoofer_for_task.map(|spoofer| {
+        tokio::spawn(async move {
             let mut interval = tokio::time::interval(spoof_interval);
             while arp_running.load(Ordering::SeqCst) {
                 interval.tick().await;
@@ -124,10 +121,8 @@ async fn run() -> Result<()> {
                     warn!("Failed to send ARP spoof packets: {}", e);
                 }
             }
-        }))
-    } else {
-        None
-    };
+        })
+    });
 
     // Spawn packet capture thread (blocking I/O)
     let capture_running = Arc::clone(&running);
@@ -154,24 +149,22 @@ async fn run() -> Result<()> {
                 }
 
                 // Check if we should forward non-DNS traffic
-                if forward_traffic {
-                    if forward::should_forward(&packet, our_ip) {
-                        if let Some(ref sender) = forward_sender {
-                            if let Some(ref spoofer) = arp_spoofer_for_capture {
-                                let guard = spoofer.lock();
-                                if let Some(gateway_mac) = guard.gateway_mac() {
-                                    let mut sender_guard = sender.lock();
-                                    let _ = forward::forward_to_gateway(
-                                        &packet,
-                                        gateway_mac,
-                                        our_mac,
-                                        &mut *sender_guard,
-                                    );
-                                }
-                            }
+                if forward_traffic && forward::should_forward(&packet, our_ip) {
+                    if let Some(ref sender) = forward_sender
+                        && let Some(ref spoofer) = arp_spoofer_for_capture
+                    {
+                        let guard = spoofer.lock();
+                        if let Some(gateway_mac) = guard.gateway_mac() {
+                            let mut sender_guard = sender.lock();
+                            let _ = forward::forward_to_gateway(
+                                &packet,
+                                gateway_mac,
+                                our_mac,
+                                &mut *sender_guard,
+                            );
                         }
-                        continue; // Don't process as DNS
                     }
+                    continue; // Don't process as DNS
                 }
 
                 // Send DNS packets for processing
@@ -202,13 +195,13 @@ async fn run() -> Result<()> {
     }
 
     // Restore ARP tables if configured
-    if let Some(ref spoofer) = arp_spoofer {
-        if config.arp_spoof.restore_on_shutdown {
-            info!("Restoring ARP tables...");
-            let mut guard = spoofer.lock();
-            if let Err(e) = guard.restore_all() {
-                warn!("Failed to restore ARP tables: {}", e);
-            }
+    if let Some(ref spoofer) = arp_spoofer
+        && config.arp_spoof.restore_on_shutdown
+    {
+        info!("Restoring ARP tables...");
+        let mut guard = spoofer.lock();
+        if let Err(e) = guard.restore_all() {
+            warn!("Failed to restore ARP tables: {}", e);
         }
     }
 

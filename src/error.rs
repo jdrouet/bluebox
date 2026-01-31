@@ -37,7 +37,46 @@ pub enum ConfigError {
     InvalidResolver(#[source] AddrParseError),
 
     #[error("validation failed: {0}")]
-    Validation(String),
+    Validation(#[from] ValidationError),
+}
+
+/// Validation errors for configuration values.
+#[derive(Debug, Error)]
+pub enum ValidationError {
+    #[error("cache_ttl_seconds must be greater than 0")]
+    ZeroCacheTtl,
+
+    #[error("buffer_pool_size must be greater than 0")]
+    ZeroBufferPoolSize,
+
+    #[error("channel_capacity must be greater than 0")]
+    ZeroChannelCapacity,
+
+    #[error("arp_spoof.spoof_interval_secs must be greater than 0")]
+    ZeroSpoofInterval,
+
+    #[error("blocklist pattern cannot be empty")]
+    EmptyBlocklistPattern,
+
+    #[error("invalid wildcard pattern: {pattern:?}")]
+    InvalidWildcardPattern { pattern: String },
+
+    #[error("blocklist source name cannot be empty")]
+    EmptyBlocklistSourceName,
+
+    #[error("duplicate blocklist source name: {name:?}")]
+    DuplicateBlocklistSourceName { name: String },
+
+    #[error("blocklist source {name:?} has empty file path")]
+    EmptyBlocklistSourcePath { name: String },
+
+    #[error("blocklist source {name:?} has empty URL")]
+    EmptyBlocklistSourceUrl { name: String },
+
+    #[error(
+        "blocklist source {name:?} has invalid URL (must start with http:// or https://): {url:?}"
+    )]
+    InvalidBlocklistSourceUrl { name: String, url: String },
 }
 
 /// Network-related errors.

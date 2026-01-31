@@ -126,7 +126,7 @@ impl ArpPacketBuilder {
     /// This is the core of ARP spoofing: we tell devices that the gateway's IP
     /// belongs to our MAC address.
     pub fn build_spoof_reply(&self, target_ip: Ipv4Addr, target_mac: MacAddr) -> Vec<u8> {
-        self.build_arp_reply(
+        Self::build_arp_reply(
             self.config.gateway_ip, // Claim to be the gateway
             self.config.our_mac,    // But use our MAC
             target_ip,
@@ -138,7 +138,7 @@ impl ArpPacketBuilder {
     ///
     /// This tells all devices on the network that the gateway IP is at our MAC.
     pub fn build_gratuitous_arp(&self) -> Vec<u8> {
-        self.build_arp_reply(
+        Self::build_arp_reply(
             self.config.gateway_ip,
             self.config.our_mac,
             self.config.gateway_ip, // Target is also the gateway IP
@@ -155,7 +155,7 @@ impl ArpPacketBuilder {
         target_ip: Ipv4Addr,
         target_mac: MacAddr,
     ) -> Vec<u8> {
-        self.build_arp_reply(self.config.gateway_ip, gateway_mac, target_ip, target_mac)
+        Self::build_arp_reply(self.config.gateway_ip, gateway_mac, target_ip, target_mac)
     }
 
     /// Build an ARP request to discover a host's MAC address.
@@ -189,7 +189,6 @@ impl ArpPacketBuilder {
 
     /// Build an ARP reply packet.
     fn build_arp_reply(
-        &self,
         sender_ip: Ipv4Addr,
         sender_mac: MacAddr,
         target_ip: Ipv4Addr,
@@ -264,17 +263,17 @@ impl<S: PacketSender> ArpSpoofer<S> {
     }
 
     /// Get a reference to the ARP table.
-    pub fn arp_table(&self) -> &ArpTable {
+    pub const fn arp_table(&self) -> &ArpTable {
         &self.arp_table
     }
 
     /// Set the real gateway MAC address (discovered externally).
-    pub fn set_gateway_mac(&mut self, mac: MacAddr) {
+    pub const fn set_gateway_mac(&mut self, mac: MacAddr) {
         self.gateway_mac = Some(mac);
     }
 
     /// Get the gateway MAC if known.
-    pub fn gateway_mac(&self) -> Option<MacAddr> {
+    pub const fn gateway_mac(&self) -> Option<MacAddr> {
         self.gateway_mac
     }
 
@@ -363,7 +362,7 @@ impl<S: PacketSender> ArpSpoofer<S> {
 
 /// Extract our IP and MAC from a network interface.
 pub fn get_interface_info(interface: &NetworkInterface) -> Result<(Ipv4Addr, MacAddr)> {
-    let mac = interface.mac.ok_or_else(|| NetworkError::NoInterface)?;
+    let mac = interface.mac.ok_or(NetworkError::NoInterface)?;
 
     let ip = interface
         .ips
@@ -372,7 +371,7 @@ pub fn get_interface_info(interface: &NetworkInterface) -> Result<(Ipv4Addr, Mac
             std::net::IpAddr::V4(v4) => Some(v4),
             std::net::IpAddr::V6(_) => None,
         })
-        .ok_or_else(|| NetworkError::NoInterface)?;
+        .ok_or(NetworkError::NoInterface)?;
 
     Ok((ip, mac))
 }

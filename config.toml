@@ -9,7 +9,7 @@ upstream_resolver = "1.1.1.1:53"
 # How long to cache DNS responses (in seconds)
 cache_ttl_seconds = 300
 
-# Domains to block
+# Domains to block (legacy inline format, still supported for backwards compatibility)
 # Supports exact matches ("facebook.com") and wildcards ("*.facebook.com")
 blocklist = [
     # Block Facebook and Instagram
@@ -23,6 +23,33 @@ blocklist = [
     "*.doubleclick.net",
     "*.googlesyndication.com",
 ]
+
+# External blocklist sources
+# These allow loading blocklists from files or remote URLs
+# Supported formats: "domains" (one domain per line), "hosts" (hosts file format), "adblock" (AdBlock syntax)
+
+# Example: Steven Black's unified hosts file
+# [[blocklist_sources]]
+# name = "steven-black-hosts"
+# enabled = true
+# source = { type = "remote", url = "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts" }
+# format = "hosts"
+# refresh_interval_hours = 24
+
+# Example: Local custom blocklist file
+# [[blocklist_sources]]
+# name = "local-custom"
+# enabled = true
+# source = { type = "file", path = "/etc/bluebox/custom-blocklist.txt" }
+# format = "domains"
+
+# Example: AdGuard DNS filter (disabled by default)
+# [[blocklist_sources]]
+# name = "adguard-dns"
+# enabled = false
+# source = { type = "remote", url = "https://adguardteam.github.io/AdGuardSDNSFilter/Filters/filter.txt" }
+# format = "adblock"
+# refresh_interval_hours = 12
 
 # ARP spoofing configuration for transparent DNS interception
 # When enabled, Bluebox will intercept DNS queries from ALL devices on the network
