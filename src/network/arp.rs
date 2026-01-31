@@ -363,7 +363,7 @@ impl<S: PacketSender> ArpSpoofer<S> {
 
 /// Extract our IP and MAC from a network interface.
 pub fn get_interface_info(interface: &NetworkInterface) -> Result<(Ipv4Addr, MacAddr)> {
-    let mac = interface.mac.ok_or_else(|| NetworkError::NoInterface)?;
+    let mac = interface.mac.ok_or(NetworkError::NoInterface)?;
 
     let ip = interface
         .ips
@@ -372,7 +372,7 @@ pub fn get_interface_info(interface: &NetworkInterface) -> Result<(Ipv4Addr, Mac
             std::net::IpAddr::V4(v4) => Some(v4),
             std::net::IpAddr::V6(_) => None,
         })
-        .ok_or_else(|| NetworkError::NoInterface)?;
+        .ok_or(NetworkError::NoInterface)?;
 
     Ok((ip, mac))
 }
