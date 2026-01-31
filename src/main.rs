@@ -18,11 +18,10 @@ use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, warn};
 
-use bluebox::blocklist::loader::FileLoader;
-use bluebox::blocklist::remote::RemoteLoader;
+use bluebox::blocklist::manager::BlocklistManager;
 use bluebox::cache::MokaCache;
-use bluebox::config::{BlocklistSourceType, Config};
-use bluebox::dns::{Blocker, UpstreamResolver};
+use bluebox::config::Config;
+use bluebox::dns::UpstreamResolver;
 use bluebox::network::arp::{ArpSpoofConfig, ArpSpoofer};
 use bluebox::network::forward;
 use bluebox::network::{
@@ -30,98 +29,6 @@ use bluebox::network::{
     get_interface_info,
 };
 use bluebox::server::{QueryHandler, run_server};
-
-/// Load blocklists from all configured sources.
-///
-/// Starts with inline patterns from the config, then loads from each enabled
-/// blocklist source. For remote sources, caching is used to support offline
-/// fallback. Missing or inaccessible sources log errors but don't crash.
-async fn load_blocklists(config: &Config) -> Vec<String> {
-    let mut all_patterns = config.blocklist.clone();
-
-    // Create remote loader only if there are remote sources
-    let has_remote_sources = config
-        .blocklist_sources
-        .iter()
-        .any(|s| s.enabled && matches!(s.source, BlocklistSourceType::Remote { .. }));
-
-    let remote_loader = if has_remote_sources {
-        match RemoteLoader::new(config.blocklist_cache_dir()) {
-            Ok(loader) => Some(loader),
-            Err(err) => {
-                error!(error = ?err, "failed to create remote loader");
-                None
-            }
-        }
-    } else {
-        None
-    };
-
-    for source in &config.blocklist_sources {
-        if !source.enabled {
-            debug!(name = ?source.name, "skipping disabled blocklist");
-            continue;
-        }
-
-        match &source.source {
-            BlocklistSourceType::File { path } => {
-                info!(
-                    name = ?source.name,
-                    path = ?path,
-                    "loading blocklist from file"
-                );
-                match FileLoader::load(path, source.format).await {
-                    Ok(patterns) => {
-                        info!(
-                            name = ?source.name,
-                            count = patterns.len(),
-                            "loaded blocklist"
-                        );
-                        all_patterns.extend(patterns);
-                    }
-                    Err(err) => {
-                        error!(
-                            name = ?source.name,
-                            error = ?err,
-                            "failed to load blocklist"
-                        );
-                    }
-                }
-            }
-            BlocklistSourceType::Remote { url } => {
-                let Some(ref loader) = remote_loader else {
-                    debug!(name = ?source.name, "skipping remote blocklist (loader unavailable)");
-                    continue;
-                };
-
-                info!(
-                    name = ?source.name,
-                    url = %url,
-                    "loading blocklist from remote URL"
-                );
-                match loader.load_cached(&source.name, url, source.format).await {
-                    Ok(patterns) => {
-                        info!(
-                            name = ?source.name,
-                            count = patterns.len(),
-                            "loaded blocklist"
-                        );
-                        all_patterns.extend(patterns);
-                    }
-                    Err(err) => {
-                        error!(
-                            name = ?source.name,
-                            error = ?err,
-                            "failed to load blocklist"
-                        );
-                    }
-                }
-            }
-        }
-    }
-
-    all_patterns
-}
 
 /// Set up ARP spoofing if enabled in configuration.
 fn setup_arp_spoofer(
@@ -290,9 +197,23 @@ async fn run() -> Result<()> {
         config.blocklist_sources.len()
     );
 
-    // Load blocklists from all sources
-    let all_patterns = load_blocklists(&config).await;
-    info!("Total blocklist patterns loaded: {}", all_patterns.len());
+    // Create and initialize blocklist manager
+    let blocklist_manager =
+        BlocklistManager::new(&config).context("Failed to create blocklist manager")?;
+    blocklist_manager
+        .initialize()
+        .await
+        .context("Failed to initialize blocklist manager")?;
+
+    info!(
+        "Blocklist manager initialized with {} unique patterns",
+        blocklist_manager.total_patterns()
+    );
+
+    // Log per-source statistics
+    for (name, stats) in blocklist_manager.stats() {
+        debug!(name = %name, patterns = stats.pattern_count, "blocklist source loaded");
+    }
 
     // Find network interface
     let interface =
@@ -302,15 +223,12 @@ async fn run() -> Result<()> {
     // Get our interface info
     let (our_ip, our_mac) =
         get_interface_info(&interface).context("Failed to get interface info")?;
-    info!("Our IP: {}, MAC: {}", our_ip, our_mac);
+    info!("Our IP: {our_ip}, MAC: {our_mac}");
 
     // Initialize components
     let cache = MokaCache::new(Duration::from_secs(config.cache_ttl_seconds));
     let resolver = UpstreamResolver::new(config.upstream_resolver);
-    let blocker = Blocker::new(&all_patterns);
     let buffer_pool = BufferPool::new(config.buffer_pool_size);
-
-    info!("Blocker initialized with {} patterns", blocker.len());
 
     // Create packet capture
     let (capture, sender) =
@@ -319,8 +237,8 @@ async fn run() -> Result<()> {
     // Set up ARP spoofing
     let arp_spoofer = setup_arp_spoofer(&config, &interface, our_ip, our_mac)?;
 
-    // Create query handler
-    let handler = QueryHandler::new(cache, resolver, blocker);
+    // Create query handler with shared blocker for hot-reload support
+    let handler = QueryHandler::with_shared_blocker(cache, resolver, blocklist_manager.blocker());
 
     // Set up packet channel and running flag
     let (packet_tx, packet_rx) = mpsc::channel::<Vec<u8>>(config.channel_capacity);
