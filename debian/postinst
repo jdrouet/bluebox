@@ -1,0 +1,31 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    configure)
+        # Create bluebox group if it doesn't exist
+        if ! getent group bluebox > /dev/null 2>&1; then
+            addgroup --system bluebox
+        fi
+
+        # Create bluebox user if it doesn't exist
+        if ! getent passwd bluebox > /dev/null 2>&1; then
+            adduser --system --ingroup bluebox --no-create-home \
+                --home /var/cache/bluebox --shell /usr/sbin/nologin bluebox
+        fi
+
+        # Create cache directory with proper ownership
+        mkdir -p /var/cache/bluebox
+        chown bluebox:bluebox /var/cache/bluebox
+        chmod 750 /var/cache/bluebox
+
+        # Reload systemd to pick up the new service
+        if [ -d /run/systemd/system ]; then
+            systemctl daemon-reload
+        fi
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

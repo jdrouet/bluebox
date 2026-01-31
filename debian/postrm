@@ -1,0 +1,32 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    purge)
+        # Remove cache directory
+        rm -rf /var/cache/bluebox
+
+        # Remove config directory
+        rm -rf /etc/bluebox
+
+        # Remove bluebox user and group
+        if getent passwd bluebox > /dev/null 2>&1; then
+            deluser --system bluebox || true
+        fi
+        if getent group bluebox > /dev/null 2>&1; then
+            delgroup --system bluebox || true
+        fi
+        ;;
+
+    remove|upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
+        ;;
+
+    *)
+        echo "postrm called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

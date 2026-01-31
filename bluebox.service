@@ -1,0 +1,27 @@
+[Unit]
+Description=Bluebox DNS Interceptor and Cache
+Documentation=https://github.com/jeremie/bluebox
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=bluebox
+Group=bluebox
+ExecStart=/usr/bin/bluebox --config /etc/bluebox/config.toml
+Restart=on-failure
+RestartSec=5
+
+# Security hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/var/cache/bluebox
+
+# Required for binding to port 53 and ARP spoofing
+AmbientCapabilities=CAP_NET_BIND_SERVICE CAP_NET_RAW CAP_NET_ADMIN
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE CAP_NET_RAW CAP_NET_ADMIN
+
+[Install]
+WantedBy=multi-user.target

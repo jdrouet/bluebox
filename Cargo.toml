@@ -78,6 +78,20 @@ strip = true
 lto = true
 codegen-units = 1
 
+[package.metadata.deb]
+maintainer = "Jeremie Drouet <jeremie.drouet@gmail.com>"
+section = "net"
+priority = "optional"
+conf-files = ["/etc/bluebox/config.toml"]
+assets = [
+    ["target/release/bluebox", "usr/bin/", "755"],
+    ["config.toml", "etc/bluebox/config.toml", "644"],
+    ["bluebox.service", "lib/systemd/system/bluebox.service", "644"],
+]
+maintainer-scripts = "debian/"
+extended-description = """Bluebox is a fast DNS interceptor and cache designed for local networks.
+It provides DNS caching and domain blocking capabilities with high performance."""
+
 [lints.rust]
 unsafe_code = "forbid"
 

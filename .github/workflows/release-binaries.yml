@@ -26,8 +26,18 @@ jobs:
         include:
           - target: x86_64-unknown-linux-gnu
             artifact_name: bluebox-linux-amd64
+            build_deb: true
+            deb_arch: amd64
           - target: aarch64-unknown-linux-gnu
             artifact_name: bluebox-linux-arm64
+            build_deb: true
+            deb_arch: arm64
+          - target: x86_64-unknown-linux-musl
+            artifact_name: bluebox-linux-amd64-musl
+            build_deb: false
+          - target: aarch64-unknown-linux-musl
+            artifact_name: bluebox-linux-arm64-musl
+            build_deb: false
 
     steps:
       - name: Checkout repository
@@ -41,15 +51,24 @@ jobs:
       - name: Install cross-compilation tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu
+          sudo apt-get install -y gcc-aarch64-linux-gnu musl-tools musl-dev
+          # Install aarch64 musl cross-compiler
+          if [[ "${{ matrix.target }}" == "aarch64-unknown-linux-musl" ]]; then
+            wget -q https://musl.cc/aarch64-linux-musl-cross.tgz
+            tar -xzf aarch64-linux-musl-cross.tgz
+            sudo mv aarch64-linux-musl-cross /opt/
+            echo "/opt/aarch64-linux-musl-cross/bin" >> $GITHUB_PATH
+          fi
 
       - name: Configure cargo for cross-compilation
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
         run: |
           mkdir -p .cargo
           cat >> .cargo/config.toml << EOF
           [target.aarch64-unknown-linux-gnu]
           linker = "aarch64-linux-gnu-gcc"
+
+          [target.aarch64-unknown-linux-musl]
+          linker = "aarch64-linux-musl-gcc"
           EOF
 
       - name: Cache cargo registry
@@ -71,6 +90,18 @@ jobs:
           cd dist
           sha256sum ${{ matrix.artifact_name }} > ${{ matrix.artifact_name }}.sha256
 
+      - name: Install cargo-deb
+        if: matrix.build_deb
+        run: cargo install cargo-deb
+
+      - name: Build deb package
+        if: matrix.build_deb
+        run: |
+          cargo deb --no-build --target ${{ matrix.target }}
+          cp target/${{ matrix.target }}/debian/*.deb dist/bluebox_${{ matrix.deb_arch }}.deb
+          cd dist
+          sha256sum bluebox_${{ matrix.deb_arch }}.deb > bluebox_${{ matrix.deb_arch }}.deb.sha256
+
       - name: Upload binary to release
         uses: softprops/action-gh-release@v2
         with:
@@ -78,3 +109,5 @@ jobs:
           files: |
             dist/${{ matrix.artifact_name }}
             dist/${{ matrix.artifact_name }}.sha256
+            dist/*.deb
+            dist/*.deb.sha256
