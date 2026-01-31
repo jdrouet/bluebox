@@ -8,6 +8,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use hickory_proto::op::Message;
 use hickory_proto::serialize::binary::BinDecodable;
+use parking_lot::RwLock;
 use tokio::sync::mpsc;
 use tracing::{info, instrument, warn};
 
@@ -31,6 +32,9 @@ pub struct ServerStats {
 ///
 /// This struct encapsulates the core DNS handling logic, separated from
 /// the network capture layer for easier testing.
+///
+/// The blocker is wrapped in `Arc<RwLock<Blocker>>` to support hot-reloading
+/// of blocklists without restarting the server.
 pub struct QueryHandler<C, R>
 where
     C: DnsCache,
@@ -38,7 +42,7 @@ where
 {
     cache: C,
     resolver: R,
-    blocker: Arc<Blocker>,
+    blocker: Arc<RwLock<Blocker>>,
 }
 
 impl<C, R> QueryHandler<C, R>
@@ -46,12 +50,27 @@ where
     C: DnsCache,
     R: DnsResolver,
 {
-    /// Create a new query handler.
+    /// Create a new query handler with an owned blocker.
+    ///
+    /// This is convenient for testing or when you don't need hot-reloading.
     pub fn new(cache: C, resolver: R, blocker: Blocker) -> Self {
         Self {
             cache,
             resolver,
-            blocker: Arc::new(blocker),
+            blocker: Arc::new(RwLock::new(blocker)),
+        }
+    }
+
+    /// Create a new query handler with a shared blocker.
+    ///
+    /// Use this when integrating with [`BlocklistManager`](crate::blocklist::manager::BlocklistManager)
+    /// to enable hot-reloading of blocklists.
+    #[must_use]
+    pub const fn with_shared_blocker(cache: C, resolver: R, blocker: Arc<RwLock<Blocker>>) -> Self {
+        Self {
+            cache,
+            resolver,
+            blocker,
         }
     }
 
@@ -65,23 +84,23 @@ where
 
         let name = query_record.name();
         tracing::Span::current().record("domain", name.to_string());
-        info!("Handling query for {}", name);
+        info!("Handling query for {name}");
 
-        // Check blocklist
-        if self.blocker.is_blocked(name) {
-            info!("Domain {} is blocked", name);
+        // Check blocklist (read lock is held briefly)
+        if self.blocker.read().is_blocked(name) {
+            info!("Domain {name} is blocked");
             return Ok(Blocker::blocked_response(&query));
         }
 
         // Check cache
         if let Some(mut cached) = self.cache.get(name).await {
-            info!("Cache hit for {}", name);
+            info!("Cache hit for {name}");
             // Update the ID to match the query
             cached.set_id(query.id());
             return Ok(cached);
         }
 
-        info!("Cache miss for {}, forwarding to upstream", name);
+        info!("Cache miss for {name}, forwarding to upstream");
 
         // Forward to upstream resolver
         let response = self.resolver.resolve(&query).await?;
@@ -357,5 +376,35 @@ mod tests {
 
         // Should return the same message since there's no query to process
         assert_eq!(response.id(), empty_query.id());
+    }
+
+    #[tokio::test]
+    async fn should_use_shared_blocker_with_hot_reload() {
+        let cache = MockCache::new();
+        let resolver = MockResolver::new();
+
+        // Create a shared blocker (simulating BlocklistManager)
+        let shared_blocker = Arc::new(RwLock::new(Blocker::default()));
+
+        let handler =
+            QueryHandler::with_shared_blocker(cache, resolver.clone(), Arc::clone(&shared_blocker));
+
+        // Domain should not be blocked initially
+        let query = create_query("newblocked.com", 1);
+        let _response = handler.handle_query(query).await.unwrap();
+        // Resolver was called because domain wasn't blocked
+        assert_eq!(resolver.resolve_count(), 1);
+
+        // Now update the shared blocker (simulating hot-reload)
+        *shared_blocker.write() = Blocker::new(["newblocked.com"]);
+
+        // Same domain should now be blocked
+        let query = create_query("newblocked.com", 2);
+        let response = handler.handle_query(query).await.unwrap();
+
+        // Should get a blocked response (localhost)
+        assert_eq!(response.answers().len(), 1);
+        // Resolver should NOT be called again
+        assert_eq!(resolver.resolve_count(), 1);
     }
 }
