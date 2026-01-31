@@ -25,6 +25,7 @@ mod adblock;
 mod domains;
 mod hosts;
 pub mod loader;
+pub mod remote;
 
 use std::io::BufRead;
 
