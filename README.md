@@ -127,6 +127,21 @@ blocklist = [
     "*.adnxs.com",
 ]
 
+# External blocklist sources (optional)
+# Load blocklists from files or remote URLs
+[[blocklist_sources]]
+name = "steven-black-hosts"
+enabled = true
+source = { type = "remote", url = "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts" }
+format = "hosts"
+refresh_interval_hours = 24
+
+[[blocklist_sources]]
+name = "local-custom"
+enabled = true
+source = { type = "file", path = "/etc/bluebox/custom-blocklist.txt" }
+format = "domains"
+
 # ARP spoofing for transparent interception
 [arp_spoof]
 enabled = true
@@ -144,8 +159,28 @@ forward_traffic = true
 | `upstream_resolver` | Upstream DNS server | Required |
 | `cache_ttl_seconds` | How long to cache DNS responses | 300 |
 | `blocklist` | List of domains/patterns to block | `[]` |
+| `blocklist_sources` | External blocklist sources (see below) | `[]` |
 | `buffer_pool_size` | Size of packet buffer pool | 64 |
 | `channel_capacity` | Packet queue capacity | 1000 |
+
+### Blocklist Sources
+
+You can load blocklists from local files or remote URLs. Each source has the following options:
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `name` | Unique identifier for this source | Required |
+| `enabled` | Whether to use this source | `true` |
+| `source.type` | `file` or `remote` | Required |
+| `source.path` | Path to local file (for `file` type) | - |
+| `source.url` | URL to fetch (for `remote` type) | - |
+| `format` | File format: `domains`, `hosts`, or `adblock` | `domains` |
+| `refresh_interval_hours` | How often to refresh remote sources | - |
+
+**Supported formats:**
+- `domains` - One domain per line
+- `hosts` - Standard hosts file format (e.g., `0.0.0.0 example.com`)
+- `adblock` - AdBlock filter syntax (future support)
 
 ### ARP Spoof Options
 
@@ -267,10 +302,11 @@ cargo bench
 - [x] Traffic forwarding for non-DNS packets
 - [x] Gateway auto-detection
 - [x] Graceful shutdown with ARP restoration
+- [x] External blocklist sources (file and remote URL)
+- [x] Multiple blocklist formats (domains, hosts, adblock)
 
 ### Planned
 - [ ] Web UI for configuration and statistics
-- [ ] Blocklist file support (hosts format, AdBlock format)
 - [ ] Per-device policies (allow/block specific devices)
 - [ ] DNS-over-HTTPS (DoH) upstream support
 - [ ] Statistics and logging dashboard
