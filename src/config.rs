@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 
-use crate::error::{ConfigError, Result};
+use crate::error::{ConfigError, Result, ValidationError};
 
 /// Supported blocklist file formats.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
@@ -182,33 +182,30 @@ impl Config {
     /// Validate the configuration.
     fn validate(&self) -> Result<()> {
         if self.cache_ttl_seconds == 0 {
-            return Err(ConfigError::Validation("cache_ttl_seconds must be > 0".into()).into());
+            return Err(ConfigError::from(ValidationError::ZeroCacheTtl).into());
         }
 
         if self.buffer_pool_size == 0 {
-            return Err(ConfigError::Validation("buffer_pool_size must be > 0".into()).into());
+            return Err(ConfigError::from(ValidationError::ZeroBufferPoolSize).into());
         }
 
         if self.channel_capacity == 0 {
-            return Err(ConfigError::Validation("channel_capacity must be > 0".into()).into());
+            return Err(ConfigError::from(ValidationError::ZeroChannelCapacity).into());
         }
 
         if self.arp_spoof.spoof_interval_secs == 0 {
-            return Err(ConfigError::Validation(
-                "arp_spoof.spoof_interval_secs must be > 0".into(),
-            )
-            .into());
+            return Err(ConfigError::from(ValidationError::ZeroSpoofInterval).into());
         }
 
         // Validate blocklist patterns
         for pattern in &self.blocklist {
             if pattern.is_empty() {
-                return Err(ConfigError::Validation("empty blocklist pattern".into()).into());
+                return Err(ConfigError::from(ValidationError::EmptyBlocklistPattern).into());
             }
             if pattern.starts_with("*.") && pattern.len() <= 2 {
-                return Err(ConfigError::Validation(format!(
-                    "invalid wildcard pattern: {pattern}"
-                ))
+                return Err(ConfigError::from(ValidationError::InvalidWildcardPattern {
+                    pattern: pattern.clone(),
+                })
                 .into());
             }
         }
@@ -226,19 +223,17 @@ impl Config {
         for source in &self.blocklist_sources {
             // Validate name is not empty
             if source.name.is_empty() {
-                return Err(ConfigError::Validation(
-                    "blocklist source name cannot be empty".into(),
-                )
-                .into());
+                return Err(ConfigError::from(ValidationError::EmptyBlocklistSourceName).into());
             }
 
             // Validate name is unique
             if !seen_names.insert(&source.name) {
-                return Err(ConfigError::Validation(format!(
-                    "duplicate blocklist source name: {}",
-                    source.name
-                ))
-                .into());
+                return Err(
+                    ConfigError::from(ValidationError::DuplicateBlocklistSourceName {
+                        name: source.name.clone(),
+                    })
+                    .into(),
+                );
             }
 
             // Validate source-specific constraints
@@ -246,38 +241,39 @@ impl Config {
                 BlocklistSourceType::File { path } => {
                     // Validate path is not empty
                     if path.as_os_str().is_empty() {
-                        return Err(ConfigError::Validation(format!(
-                            "blocklist source '{}' has empty file path",
-                            source.name
-                        ))
-                        .into());
+                        return Err(
+                            ConfigError::from(ValidationError::EmptyBlocklistSourcePath {
+                                name: source.name.clone(),
+                            })
+                            .into(),
+                        );
                     }
 
                     // Warn if refresh_interval is set for file sources (it's ignored)
-                    // We just log this as a warning, not an error
                     if source.refresh_interval_hours.is_some() {
                         tracing::warn!(
-                            "blocklist source '{}': refresh_interval_hours is ignored for file sources",
-                            source.name
+                            name = ?source.name,
+                            "refresh_interval_hours is ignored for file sources"
                         );
                     }
                 }
                 BlocklistSourceType::Remote { url } => {
                     // Validate URL is not empty
                     if url.is_empty() {
-                        return Err(ConfigError::Validation(format!(
-                            "blocklist source '{}' has empty URL",
-                            source.name
-                        ))
+                        return Err(ConfigError::from(ValidationError::EmptyBlocklistSourceUrl {
+                            name: source.name.clone(),
+                        })
                         .into());
                     }
 
                     // Validate URL format (basic check for http/https scheme)
                     if !url.starts_with("http://") && !url.starts_with("https://") {
-                        return Err(ConfigError::Validation(format!(
-                            "blocklist source '{}' has invalid URL (must start with http:// or https://): {}",
-                            source.name, url
-                        ))
+                        return Err(ConfigError::from(
+                            ValidationError::InvalidBlocklistSourceUrl {
+                                name: source.name.clone(),
+                                url: url.clone(),
+                            },
+                        )
                         .into());
                     }
                 }
