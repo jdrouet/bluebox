@@ -2,7 +2,7 @@
 
 pub mod arp;
 mod buffer;
-mod capture;
+pub(crate) mod capture;
 pub mod forward;
 mod packet;
 

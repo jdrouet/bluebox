@@ -149,6 +149,8 @@ pub fn extract_dns_query(packet: &[u8]) -> Option<(PacketInfo, Vec<u8>)> {
     Some((packet_info, udp.payload().to_vec()))
 }
 
+/// Test utilities for packet capture (only available in tests).
+#[allow(clippy::cast_possible_truncation)] // Test packet sizes are always small
 #[cfg(test)]
 pub mod tests {
     use super::*;
@@ -244,5 +246,188 @@ pub mod tests {
             ..info1
         };
         assert_ne!(info1, info3);
+    }
+
+    #[test]
+    fn should_extract_dns_query_from_valid_ipv4_packet() {
+        use pnet::packet::ethernet::MutableEthernetPacket;
+        use pnet::packet::ip::IpNextHeaderProtocols;
+        use pnet::packet::ipv4::MutableIpv4Packet;
+        use pnet::packet::udp::MutableUdpPacket;
+        use std::net::Ipv4Addr;
+
+        let dns_payload = b"DNS query data";
+        let udp_len = 8 + dns_payload.len();
+        let ipv4_len = 20 + udp_len;
+        let total_len = 14 + ipv4_len;
+
+        let mut buffer = vec![0u8; total_len];
+
+        // Build Ethernet header
+        {
+            let mut eth = MutableEthernetPacket::new(&mut buffer[..]).unwrap();
+            eth.set_source(MacAddr::new(0x11, 0x22, 0x33, 0x44, 0x55, 0x66));
+            eth.set_destination(MacAddr::new(0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff));
+            eth.set_ethertype(EtherTypes::Ipv4);
+        }
+
+        // Build IPv4 header
+        {
+            let mut ipv4 = MutableIpv4Packet::new(&mut buffer[14..]).unwrap();
+            ipv4.set_version(4);
+            ipv4.set_header_length(5);
+            ipv4.set_total_length(ipv4_len as u16);
+            ipv4.set_next_level_protocol(IpNextHeaderProtocols::Udp);
+            ipv4.set_source(Ipv4Addr::new(192, 168, 1, 100));
+            ipv4.set_destination(Ipv4Addr::new(192, 168, 1, 1));
+        }
+
+        // Build UDP header
+        {
+            let mut udp = MutableUdpPacket::new(&mut buffer[34..]).unwrap();
+            udp.set_source(12345);
+            udp.set_destination(53); // DNS port
+            udp.set_length(udp_len as u16);
+            udp.set_payload(dns_payload);
+        }
+
+        let result = extract_dns_query(&buffer);
+        assert!(result.is_some());
+
+        let (info, payload) = result.unwrap();
+        assert_eq!(
+            info.source_mac,
+            MacAddr::new(0x11, 0x22, 0x33, 0x44, 0x55, 0x66)
+        );
+        assert_eq!(
+            info.dest_mac,
+            MacAddr::new(0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff)
+        );
+        assert_eq!(info.source_ip, IpAddr::V4(Ipv4Addr::new(192, 168, 1, 100)));
+        assert_eq!(info.dest_ip, IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)));
+        assert_eq!(info.source_port, 12345);
+        assert_eq!(info.dest_port, 53);
+        assert_eq!(payload, dns_payload);
+    }
+
+    #[test]
+    fn should_extract_dns_query_from_valid_ipv6_packet() {
+        use pnet::packet::ethernet::MutableEthernetPacket;
+        use pnet::packet::ip::IpNextHeaderProtocols;
+        use pnet::packet::ipv6::MutableIpv6Packet;
+        use pnet::packet::udp::MutableUdpPacket;
+        use std::net::Ipv6Addr;
+
+        let dns_payload = b"DNS query data";
+        let udp_len = 8 + dns_payload.len();
+        let total_len = 14 + 40 + udp_len; // Ethernet + IPv6 + UDP
+
+        let mut buffer = vec![0u8; total_len];
+
+        // Build Ethernet header
+        {
+            let mut eth = MutableEthernetPacket::new(&mut buffer[..]).unwrap();
+            eth.set_source(MacAddr::new(0x11, 0x22, 0x33, 0x44, 0x55, 0x66));
+            eth.set_destination(MacAddr::new(0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff));
+            eth.set_ethertype(EtherTypes::Ipv6);
+        }
+
+        // Build IPv6 header
+        {
+            let mut ipv6 = MutableIpv6Packet::new(&mut buffer[14..]).unwrap();
+            ipv6.set_version(6);
+            ipv6.set_payload_length(udp_len as u16);
+            ipv6.set_next_header(IpNextHeaderProtocols::Udp);
+            ipv6.set_source(Ipv6Addr::new(0xfe80, 0, 0, 0, 0, 0, 0, 1));
+            ipv6.set_destination(Ipv6Addr::new(0xfe80, 0, 0, 0, 0, 0, 0, 2));
+        }
+
+        // Build UDP header
+        {
+            let mut udp = MutableUdpPacket::new(&mut buffer[54..]).unwrap();
+            udp.set_source(54321);
+            udp.set_destination(53); // DNS port
+            udp.set_length(udp_len as u16);
+            udp.set_payload(dns_payload);
+        }
+
+        let result = extract_dns_query(&buffer);
+        assert!(result.is_some());
+
+        let (info, payload) = result.unwrap();
+        assert_eq!(
+            info.source_ip,
+            IpAddr::V6(Ipv6Addr::new(0xfe80, 0, 0, 0, 0, 0, 0, 1))
+        );
+        assert_eq!(
+            info.dest_ip,
+            IpAddr::V6(Ipv6Addr::new(0xfe80, 0, 0, 0, 0, 0, 0, 2))
+        );
+        assert_eq!(info.source_port, 54321);
+        assert_eq!(info.dest_port, 53);
+        assert_eq!(payload, dns_payload);
+    }
+
+    #[test]
+    fn should_return_none_for_non_dns_port() {
+        use pnet::packet::ethernet::MutableEthernetPacket;
+        use pnet::packet::ip::IpNextHeaderProtocols;
+        use pnet::packet::ipv4::MutableIpv4Packet;
+        use pnet::packet::udp::MutableUdpPacket;
+        use std::net::Ipv4Addr;
+
+        let dns_payload = b"Not DNS";
+        let udp_len = 8 + dns_payload.len();
+        let ipv4_len = 20 + udp_len;
+        let total_len = 14 + ipv4_len;
+
+        let mut buffer = vec![0u8; total_len];
+
+        {
+            let mut eth = MutableEthernetPacket::new(&mut buffer[..]).unwrap();
+            eth.set_ethertype(EtherTypes::Ipv4);
+        }
+
+        {
+            let mut ipv4 = MutableIpv4Packet::new(&mut buffer[14..]).unwrap();
+            ipv4.set_version(4);
+            ipv4.set_header_length(5);
+            ipv4.set_total_length(ipv4_len as u16);
+            ipv4.set_next_level_protocol(IpNextHeaderProtocols::Udp);
+            ipv4.set_source(Ipv4Addr::new(192, 168, 1, 100));
+            ipv4.set_destination(Ipv4Addr::new(192, 168, 1, 1));
+        }
+
+        {
+            let mut udp = MutableUdpPacket::new(&mut buffer[34..]).unwrap();
+            udp.set_source(12345);
+            udp.set_destination(80); // HTTP port, not DNS
+            udp.set_length(udp_len as u16);
+            udp.set_payload(dns_payload);
+        }
+
+        let result = extract_dns_query(&buffer);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn should_return_none_for_non_ip_packet() {
+        use pnet::packet::ethernet::MutableEthernetPacket;
+
+        let mut buffer = vec![0u8; 64];
+        {
+            let mut eth = MutableEthernetPacket::new(&mut buffer[..]).unwrap();
+            eth.set_ethertype(EtherTypes::Arp); // Not IPv4 or IPv6
+        }
+
+        let result = extract_dns_query(&buffer);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn should_return_none_for_too_short_packet() {
+        let buffer = vec![0u8; 10]; // Too short for Ethernet header
+        let result = extract_dns_query(&buffer);
+        assert!(result.is_none());
     }
 }
