@@ -158,6 +158,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::similar_names, reason = "https and http, come on...")]
     fn test_should_forward_dns_query() {
         let our_ip = Ipv4Addr::new(192, 168, 1, 100);
         let client_ip = Ipv4Addr::new(192, 168, 1, 50);
