@@ -652,4 +652,57 @@ mod tests {
 
         assert!(Config::parse(toml).is_err());
     }
+
+    #[test]
+    fn test_zero_buffer_pool_size_rejected() {
+        let toml = r#"
+            upstream_resolver = "1.1.1.1:53"
+            buffer_pool_size = 0
+        "#;
+
+        assert!(Config::parse(toml).is_err());
+    }
+
+    #[test]
+    fn test_zero_channel_capacity_rejected() {
+        let toml = r#"
+            upstream_resolver = "1.1.1.1:53"
+            channel_capacity = 0
+        "#;
+
+        assert!(Config::parse(toml).is_err());
+    }
+
+    #[test]
+    fn test_invalid_wildcard_pattern_rejected() {
+        let toml = r#"
+            upstream_resolver = "1.1.1.1:53"
+            blocklist = ["*."]
+        "#;
+
+        assert!(Config::parse(toml).is_err());
+    }
+
+    #[test]
+    fn test_blocklist_source_file_with_refresh_interval() {
+        // This should parse successfully but emit a warning
+        let toml = r#"
+            upstream_resolver = "1.1.1.1:53"
+
+            [[blocklist_sources]]
+            name = "local-custom"
+            source = { type = "file", path = "/etc/bluebox/custom-blocklist.txt" }
+            refresh_interval_hours = 24
+        "#;
+
+        // Should succeed despite refresh_interval being set for a file source
+        let config = Config::parse(toml).unwrap();
+        assert_eq!(config.blocklist_sources[0].refresh_interval_hours, Some(24));
+    }
+
+    #[test]
+    fn test_config_load_nonexistent_file() {
+        let result = Config::load("/nonexistent/path/to/config.toml");
+        assert!(result.is_err());
+    }
 }
