@@ -83,6 +83,10 @@ pub struct Config {
     #[serde(default)]
     pub blocklist_sources: Vec<BlocklistSourceConfig>,
 
+    /// Cache directory for remote blocklists.
+    /// Defaults to platform-specific cache directory.
+    pub blocklist_cache_dir: Option<PathBuf>,
+
     /// Size of the packet buffer pool.
     #[serde(default = "default_buffer_pool_size")]
     pub buffer_pool_size: usize,
@@ -177,6 +181,17 @@ impl Config {
         let config: Self = toml::from_str(content).map_err(ConfigError::Parse)?;
         config.validate()?;
         Ok(config)
+    }
+
+    /// Get the blocklist cache directory.
+    ///
+    /// Returns the configured directory or falls back to the platform-specific
+    /// default cache directory.
+    #[must_use]
+    pub fn blocklist_cache_dir(&self) -> PathBuf {
+        self.blocklist_cache_dir
+            .clone()
+            .unwrap_or_else(crate::blocklist::remote::default_cache_dir)
     }
 
     /// Validate the configuration.
@@ -704,5 +719,36 @@ mod tests {
     fn should_return_error_when_loading_nonexistent_file() {
         let result = Config::load("/nonexistent/path/to/config.toml");
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn should_parse_blocklist_cache_dir() {
+        let toml = r#"
+            upstream_resolver = "1.1.1.1:53"
+            blocklist_cache_dir = "/var/cache/bluebox/blocklists"
+        "#;
+
+        let config = Config::parse(toml).unwrap();
+        assert_eq!(
+            config.blocklist_cache_dir,
+            Some(PathBuf::from("/var/cache/bluebox/blocklists"))
+        );
+        assert_eq!(
+            config.blocklist_cache_dir(),
+            PathBuf::from("/var/cache/bluebox/blocklists")
+        );
+    }
+
+    #[test]
+    fn should_use_default_blocklist_cache_dir_when_not_specified() {
+        let toml = r#"
+            upstream_resolver = "1.1.1.1:53"
+        "#;
+
+        let config = Config::parse(toml).unwrap();
+        assert!(config.blocklist_cache_dir.is_none());
+        // The method should return the platform-specific default
+        let cache_dir = config.blocklist_cache_dir();
+        assert!(cache_dir.ends_with("bluebox/blocklists") || cache_dir.ends_with("blocklists"));
     }
 }
