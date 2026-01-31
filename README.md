@@ -59,11 +59,53 @@ A fast, transparent DNS interceptor for local networks. Bluebox acts as a parent
 
 ### Prerequisites
 
-- Rust 1.75+ (edition 2024)
 - Root/sudo privileges (required for raw packet capture and ARP)
-- Linux or macOS
+- Linux (Debian/Ubuntu for .deb packages)
 
-### Building
+### Pre-built Binaries
+
+Download pre-built binaries from the [Releases](https://github.com/jeremie/bluebox/releases) page:
+
+| Platform | Binary | Notes |
+|----------|--------|-------|
+| Linux x86_64 (glibc) | `bluebox-linux-amd64` | Standard Linux |
+| Linux aarch64 (glibc) | `bluebox-linux-arm64` | Raspberry Pi 4+, ARM servers |
+| Linux x86_64 (musl) | `bluebox-linux-amd64-musl` | Static binary, works on any Linux |
+| Linux aarch64 (musl) | `bluebox-linux-arm64-musl` | Static binary for ARM |
+
+### Debian/Ubuntu (.deb package)
+
+The easiest way to install on Debian-based systems:
+
+```bash
+# Download the .deb for your architecture
+wget https://github.com/jeremie/bluebox/releases/latest/download/bluebox_amd64.deb
+# or for ARM64 (Raspberry Pi 4+)
+wget https://github.com/jeremie/bluebox/releases/latest/download/bluebox_arm64.deb
+
+# Install
+sudo dpkg -i bluebox_*.deb
+```
+
+The .deb package includes:
+- Binary at `/usr/bin/bluebox`
+- Example config at `/etc/bluebox/config.toml`
+- Systemd service file
+- Dedicated `bluebox` user/group for security
+
+After installation:
+```bash
+# Edit the configuration
+sudo nano /etc/bluebox/config.toml
+
+# Enable and start the service
+sudo systemctl enable bluebox
+sudo systemctl start bluebox
+```
+
+### Building from Source
+
+Requirements: Rust 1.75+ (edition 2024)
 
 ```bash
 git clone https://github.com/jeremie/bluebox.git
@@ -90,10 +132,13 @@ The binary will be at `target/release/bluebox`.
 3. Copy the binary and config:
    ```bash
    sudo cp target/release/bluebox /usr/local/bin/
+   sudo mkdir -p /etc/bluebox
    sudo cp config.toml /etc/bluebox/config.toml
    ```
 
 4. Run as a systemd service (see [Systemd Service](#systemd-service) below)
+
+Alternatively, download the pre-built `bluebox_arm64.deb` package for Raspberry Pi 4+.
 
 ## Configuration
 
@@ -213,34 +258,61 @@ sudo ./bluebox
 
 ### Systemd Service
 
-Create `/etc/systemd/system/bluebox.service`:
-
-```ini
-[Unit]
-Description=Bluebox DNS Interceptor
-After=network.target
-
-[Service]
-Type=simple
-ExecStart=/usr/local/bin/bluebox
-WorkingDirectory=/etc/bluebox
-Restart=always
-RestartSec=5
-
-# Security
-CapabilityBoundingSet=CAP_NET_RAW CAP_NET_ADMIN
-AmbientCapabilities=CAP_NET_RAW CAP_NET_ADMIN
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Enable and start:
+If you installed via the .deb package, the systemd service is already set up. Just enable and start it:
 
 ```bash
 sudo systemctl enable bluebox
 sudo systemctl start bluebox
 sudo systemctl status bluebox
+```
+
+For manual installations, create `/etc/systemd/system/bluebox.service`:
+
+```ini
+[Unit]
+Description=Bluebox DNS Interceptor and Cache
+Documentation=https://github.com/jeremie/bluebox
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=bluebox
+Group=bluebox
+ExecStart=/usr/bin/bluebox --config /etc/bluebox/config.toml
+Restart=on-failure
+RestartSec=5
+
+# Security hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/var/cache/bluebox
+
+# Required for binding to port 53 and ARP spoofing
+AmbientCapabilities=CAP_NET_BIND_SERVICE CAP_NET_RAW CAP_NET_ADMIN
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE CAP_NET_RAW CAP_NET_ADMIN
+
+[Install]
+WantedBy=multi-user.target
+```
+
+You'll also need to create the user and directories:
+
+```bash
+sudo addgroup --system bluebox
+sudo adduser --system --ingroup bluebox --no-create-home --home /var/cache/bluebox bluebox
+sudo mkdir -p /var/cache/bluebox
+sudo chown bluebox:bluebox /var/cache/bluebox
+```
+
+Then enable and start:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable bluebox
+sudo systemctl start bluebox
 ```
 
 ## Architecture
