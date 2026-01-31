@@ -98,6 +98,10 @@ pub struct Config {
     /// ARP spoofing configuration for transparent DNS interception.
     #[serde(default)]
     pub arp_spoof: ArpSpoofSettings,
+
+    /// Metrics configuration for Prometheus exporter.
+    #[serde(default)]
+    pub metrics: MetricsConfig,
 }
 
 /// ARP spoofing settings for transparent DNS interception.
@@ -137,6 +141,27 @@ impl Default for ArpSpoofSettings {
     }
 }
 
+/// Metrics configuration for Prometheus exporter.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MetricsConfig {
+    /// Enable metrics collection and Prometheus endpoint.
+    #[serde(default)]
+    pub enabled: bool,
+    /// Prometheus HTTP listener address.
+    #[serde(default = "default_metrics_listen")]
+    pub listen: SocketAddr,
+}
+
+impl Default for MetricsConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            listen: default_metrics_listen(),
+        }
+    }
+}
+
 const fn default_cache_ttl() -> u64 {
     300
 }
@@ -159,6 +184,10 @@ const fn default_restore_on_shutdown() -> bool {
 
 const fn default_forward_traffic() -> bool {
     true
+}
+
+fn default_metrics_listen() -> SocketAddr {
+    SocketAddr::from(([0, 0, 0, 0], 9090))
 }
 
 fn deserialize_socket_addr<'de, D>(deserializer: D) -> std::result::Result<SocketAddr, D::Error>
