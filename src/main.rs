@@ -93,11 +93,11 @@ fn setup_arp_spoofer(
     info!("ARP spoofing enabled - configuring transparent interception");
 
     let gateway_ip = if let Some(ip) = config.arp_spoof.gateway_ip {
-        info!("Using configured gateway IP: {}", ip);
+        info!("Using configured gateway IP: {ip}");
         ip
     } else {
         let detected = detect_gateway().context("Failed to detect gateway")?;
-        info!("Auto-detected gateway IP: {}", detected);
+        info!("Auto-detected gateway IP: {detected}");
         detected
     };
 
@@ -131,7 +131,7 @@ fn spawn_arp_spoof_task(
             ticker.tick().await;
             let mut guard = spoofer.lock();
             if let Err(err) = guard.spoof_all() {
-                warn!("Failed to send ARP spoof packets: {}", err);
+                warn!("Failed to send ARP spoof packets: {err}");
             }
         }
     })
@@ -207,7 +207,7 @@ async fn wait_for_shutdown(
         }
         result = server_handle => {
             if let Err(err) = result {
-                tracing::error!("Server task failed: {}", err);
+                tracing::error!("Server task failed: {err}");
             }
         }
     }
@@ -219,7 +219,7 @@ async fn wait_for_shutdown(
         info!("Restoring ARP tables...");
         let mut guard = spoofer.lock();
         if let Err(err) = guard.restore_all() {
-            warn!("Failed to restore ARP tables: {}", err);
+            warn!("Failed to restore ARP tables: {err}");
         }
     }
 
@@ -316,7 +316,7 @@ async fn run() -> Result<()> {
     let server_handle = tokio::spawn(async move {
         if let Err(err) = run_server(packet_rx, handler, sender, buffer_pool, server_running).await
         {
-            error!("Server error: {:?}", err);
+            error!("Server error: {err:?}");
         }
     });
 

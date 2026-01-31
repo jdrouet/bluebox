@@ -80,6 +80,30 @@ Avoid large separator comments or ASCII art banners. Use simple doc comments and
 // =============================================================================
 ```
 
+### String Formatting
+
+Use inline format syntax (captured identifiers) instead of positional arguments when possible. This is more concise and readable.
+
+```rust
+// Good - inline format syntax
+format!("{value:?}");
+println!("Hello {name}!");
+error!("Failed to load: {err}");
+
+// Avoid - positional arguments
+format!("{:?}", value);
+println!("Hello {}!", name);
+error!("Failed to load: {}", err);
+```
+
+Note: Inline syntax only works with simple identifiers. For method calls or field access, positional arguments are still required:
+
+```rust
+// These require positional arguments (method calls / field access)
+info!("Count: {}", items.len());
+info!("Name: {}", config.name);
+```
+
 ## Architecture
 
 The codebase is organized into modules with clear responsibilities:
