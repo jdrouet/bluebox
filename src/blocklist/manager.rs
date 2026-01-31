@@ -374,6 +374,7 @@ mod tests {
             buffer_pool_size: 64,
             channel_capacity: 1000,
             arp_spoof: crate::config::ArpSpoofSettings::default(),
+            metrics: crate::config::MetricsConfig::default(),
         }
     }
 

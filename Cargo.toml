@@ -33,6 +33,10 @@ tokio = { version = "1.38", features = ["full"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
 
+# Metrics
+metrics = "0.24"
+metrics-exporter-prometheus = "0.16"
+
 # Synchronization (faster than std)
 parking_lot = "0.12"
 

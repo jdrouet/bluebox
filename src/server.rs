@@ -8,6 +8,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use hickory_proto::op::Message;
 use hickory_proto::serialize::binary::BinDecodable;
+use metrics::counter;
 use parking_lot::RwLock;
 use tokio::sync::mpsc;
 use tracing::{info, instrument, warn};
@@ -83,24 +84,29 @@ where
         };
 
         let name = query_record.name();
+        let query_type = query_record.query_type().to_string();
         tracing::Span::current().record("domain", name.to_string());
         info!("Handling query for {name}");
 
         // Check blocklist (read lock is held briefly)
         if self.blocker.read().is_blocked(name) {
             info!("Domain {name} is blocked");
+            counter!("dns.queries", "status" => "blocked", "query_type" => query_type).increment(1);
             return Ok(Blocker::blocked_response(&query));
         }
 
         // Check cache
         if let Some(mut cached) = self.cache.get(name).await {
             info!("Cache hit for {name}");
+            counter!("dns.queries", "status" => "cache_hit", "query_type" => query_type)
+                .increment(1);
             // Update the ID to match the query
             cached.set_id(query.id());
             return Ok(cached);
         }
 
         info!("Cache miss for {name}, forwarding to upstream");
+        counter!("dns.queries", "status" => "cache_miss", "query_type" => query_type).increment(1);
 
         // Forward to upstream resolver
         let response = self.resolver.resolve(&query).await?;

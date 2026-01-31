@@ -34,6 +34,7 @@ pub mod cache;
 pub mod config;
 pub mod dns;
 pub mod error;
+pub mod metrics;
 pub mod network;
 pub mod server;
 
