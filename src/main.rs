@@ -19,6 +19,7 @@ use tokio::task::JoinHandle;
 use tracing::{debug, error, info, warn};
 
 use bluebox::blocklist::loader::FileLoader;
+use bluebox::blocklist::remote::RemoteLoader;
 use bluebox::cache::MokaCache;
 use bluebox::config::{BlocklistSourceType, Config};
 use bluebox::dns::{Blocker, UpstreamResolver};
@@ -33,9 +34,28 @@ use bluebox::server::{QueryHandler, run_server};
 /// Load blocklists from all configured sources.
 ///
 /// Starts with inline patterns from the config, then loads from each enabled
-/// blocklist source. Missing or inaccessible files log errors but don't crash.
+/// blocklist source. For remote sources, caching is used to support offline
+/// fallback. Missing or inaccessible sources log errors but don't crash.
 async fn load_blocklists(config: &Config) -> Vec<String> {
     let mut all_patterns = config.blocklist.clone();
+
+    // Create remote loader only if there are remote sources
+    let has_remote_sources = config
+        .blocklist_sources
+        .iter()
+        .any(|s| s.enabled && matches!(s.source, BlocklistSourceType::Remote { .. }));
+
+    let remote_loader = if has_remote_sources {
+        match RemoteLoader::new(config.blocklist_cache_dir()) {
+            Ok(loader) => Some(loader),
+            Err(err) => {
+                error!(error = ?err, "failed to create remote loader");
+                None
+            }
+        }
+    } else {
+        None
+    };
 
     for source in &config.blocklist_sources {
         if !source.enabled {
@@ -68,8 +88,34 @@ async fn load_blocklists(config: &Config) -> Vec<String> {
                     }
                 }
             }
-            BlocklistSourceType::Remote { .. } => {
-                debug!(name = ?source.name, "skipping remote blocklist source");
+            BlocklistSourceType::Remote { url } => {
+                let Some(ref loader) = remote_loader else {
+                    debug!(name = ?source.name, "skipping remote blocklist (loader unavailable)");
+                    continue;
+                };
+
+                info!(
+                    name = ?source.name,
+                    url = %url,
+                    "loading blocklist from remote URL"
+                );
+                match loader.load_cached(&source.name, url, source.format).await {
+                    Ok(patterns) => {
+                        info!(
+                            name = ?source.name,
+                            count = patterns.len(),
+                            "loaded blocklist"
+                        );
+                        all_patterns.extend(patterns);
+                    }
+                    Err(err) => {
+                        error!(
+                            name = ?source.name,
+                            error = ?err,
+                            "failed to load blocklist"
+                        );
+                    }
+                }
             }
         }
     }

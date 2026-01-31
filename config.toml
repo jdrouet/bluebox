@@ -51,6 +51,12 @@ blocklist = [
 # format = "adblock"
 # refresh_interval_hours = 12
 
+# Cache directory for remote blocklists
+# If not specified, uses the platform-specific default:
+# - Linux: ~/.cache/bluebox/blocklists/
+# - macOS: ~/Library/Caches/bluebox/blocklists/
+# blocklist_cache_dir = "/var/cache/bluebox/blocklists"
+
 # ARP spoofing configuration for transparent DNS interception
 # When enabled, Bluebox will intercept DNS queries from ALL devices on the network
 # without requiring any client configuration
