@@ -20,7 +20,7 @@ pub fn init(config: &MetricsConfig) -> Result<()> {
     PrometheusBuilder::new()
         .with_http_listener(config.listen)
         .install()
-        .map_err(|e| crate::error::Error::Metrics(e.to_string()))?;
+        .map_err(crate::error::Error::Metrics)?;
 
     Ok(())
 }

@@ -24,7 +24,7 @@ pub enum Error {
     Io(#[from] io::Error),
 
     #[error("metrics error: {0}")]
-    Metrics(String),
+    Metrics(#[from] metrics_exporter_prometheus::BuildError),
 }
 
 /// Configuration-related errors.
