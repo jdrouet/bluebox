@@ -188,6 +188,12 @@ async fn wait_for_shutdown(
 async fn run() -> Result<()> {
     let config = Config::load("config.toml").context("Failed to load configuration")?;
 
+    // Initialize metrics (must be done early, before any metrics are recorded)
+    bluebox::metrics::init(&config.metrics).context("Failed to initialize metrics")?;
+    if config.metrics.enabled {
+        info!("Metrics enabled on {}", config.metrics.listen);
+    }
+
     info!("Starting Bluebox DNS interceptor...");
     info!("Upstream resolver: {}", config.upstream_resolver);
     info!("Cache TTL: {} seconds", config.cache_ttl_seconds);
