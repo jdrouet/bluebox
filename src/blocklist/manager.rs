@@ -211,8 +211,14 @@ impl BlocklistManager {
     /// This method collects all patterns from all sources, deduplicates them,
     /// and atomically replaces the current blocker.
     fn rebuild_blocker(&self) {
-        let patterns = self.source_patterns.read();
-        let all_patterns: Vec<String> = patterns.values().flatten().cloned().collect();
+        // Collect patterns while holding the read lock, then release it
+        let all_patterns: Vec<String> = self
+            .source_patterns
+            .read()
+            .values()
+            .flatten()
+            .cloned()
+            .collect();
         let total_raw = all_patterns.len();
 
         let new_blocker = Blocker::new(all_patterns);
@@ -367,7 +373,7 @@ mod tests {
             blocklist_cache_dir: None,
             buffer_pool_size: 64,
             channel_capacity: 1000,
-            arp_spoof: Default::default(),
+            arp_spoof: crate::config::ArpSpoofSettings::default(),
         }
     }
 

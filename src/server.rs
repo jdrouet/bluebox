@@ -65,7 +65,8 @@ where
     ///
     /// Use this when integrating with [`BlocklistManager`](crate::blocklist::manager::BlocklistManager)
     /// to enable hot-reloading of blocklists.
-    pub fn with_shared_blocker(cache: C, resolver: R, blocker: Arc<RwLock<Blocker>>) -> Self {
+    #[must_use]
+    pub const fn with_shared_blocker(cache: C, resolver: R, blocker: Arc<RwLock<Blocker>>) -> Self {
         Self {
             cache,
             resolver,
