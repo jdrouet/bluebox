@@ -129,7 +129,7 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_moka_cache_basic_operations() {
+    async fn should_insert_and_retrieve_cached_entries() {
         let cache = MokaCache::new(Duration::from_secs(60));
         let name = Name::from_str("example.com").unwrap();
         let message = create_test_message(1234);
@@ -144,7 +144,7 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_mock_cache_tracks_calls() {
+    async fn should_track_get_and_insert_call_counts() {
         let cache = MockCache::new();
         let name = Name::from_str("example.com").unwrap();
         let message = create_test_message(1);
@@ -163,7 +163,7 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_cache_with_capacity() {
+    async fn should_work_with_capacity_limit() {
         let cache = MokaCache::with_capacity(Duration::from_secs(60), 10);
         let name = Name::from_str("example.com").unwrap();
         let message = create_test_message(1);

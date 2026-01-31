@@ -172,7 +172,7 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_mock_resolver_default_nxdomain() {
+    async fn should_return_nxdomain_when_no_response_configured() {
         let resolver = MockResolver::new();
         let query = create_query("example.com");
 
@@ -184,7 +184,7 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_mock_resolver_configured_response() {
+    async fn should_return_configured_response_for_domain() {
         let resolver = MockResolver::new();
         let name = Name::from_str("example.com").unwrap();
         let response = create_response(0);
@@ -198,7 +198,7 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_mock_resolver_default_response() {
+    async fn should_return_default_response_when_domain_not_configured() {
         let resolver = MockResolver::new();
         let response = create_response(0);
         resolver.set_default_response(response).await;
@@ -210,7 +210,7 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_mock_resolver_error() {
+    async fn should_return_error_when_resolver_configured_to_fail() {
         let resolver = MockResolver::new();
         resolver.set_error("connection refused").await;
 

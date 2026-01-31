@@ -143,7 +143,7 @@ mod tests {
     }
 
     #[test]
-    fn test_exact_match() {
+    fn should_block_exact_match_domains() {
         let blocker = Blocker::new(["google.com", "facebook.com"]);
 
         assert!(blocker.is_blocked(&name("google.com")));
@@ -152,7 +152,7 @@ mod tests {
     }
 
     #[test]
-    fn test_exact_match_case_insensitive() {
+    fn should_match_domains_case_insensitively() {
         let blocker = Blocker::new(["Google.COM"]);
 
         assert!(blocker.is_blocked(&name("google.com")));
@@ -161,7 +161,7 @@ mod tests {
     }
 
     #[test]
-    fn test_wildcard_match() {
+    fn should_block_wildcard_subdomains() {
         let blocker = Blocker::new(["*.ads.com"]);
 
         assert!(blocker.is_blocked(&name("tracking.ads.com")));
@@ -172,7 +172,7 @@ mod tests {
     }
 
     #[test]
-    fn test_wildcard_case_insensitive() {
+    fn should_match_wildcards_case_insensitively() {
         let blocker = Blocker::new(["*.ADS.COM"]);
 
         assert!(blocker.is_blocked(&name("tracking.ads.com")));
@@ -180,7 +180,7 @@ mod tests {
     }
 
     #[test]
-    fn test_combined_patterns() {
+    fn should_handle_combined_exact_and_wildcard_patterns() {
         let blocker = Blocker::new(["facebook.com", "*.facebook.com", "*.ads.net"]);
 
         assert!(blocker.is_blocked(&name("facebook.com")));
@@ -192,7 +192,7 @@ mod tests {
     }
 
     #[test]
-    fn test_trailing_dot_handling() {
+    fn should_handle_trailing_dot_in_domains() {
         let blocker = Blocker::new(["google.com."]);
 
         assert!(blocker.is_blocked(&name("google.com")));
@@ -200,7 +200,7 @@ mod tests {
     }
 
     #[test]
-    fn test_empty_blocker() {
+    fn should_not_block_when_empty() {
         let blocker = Blocker::default();
 
         assert!(blocker.is_empty());
@@ -209,14 +209,14 @@ mod tests {
     }
 
     #[test]
-    fn test_len() {
+    fn should_return_correct_pattern_count() {
         let blocker = Blocker::new(["a.com", "b.com", "*.c.com"]);
         assert_eq!(blocker.len(), 3);
         assert!(!blocker.is_empty());
     }
 
     #[test]
-    fn test_blocked_response_ipv4() {
+    fn should_return_localhost_for_blocked_ipv4_query() {
         let mut query = Message::new();
         query.set_id(1234);
         query.add_query({
@@ -241,7 +241,7 @@ mod tests {
     }
 
     #[test]
-    fn test_blocked_response_ipv6() {
+    fn should_return_localhost_for_blocked_ipv6_query() {
         let mut query = Message::new();
         query.set_id(5678);
         query.add_query({

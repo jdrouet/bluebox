@@ -100,7 +100,7 @@ mod tests {
     use std::io::BufReader;
 
     #[test]
-    fn test_parser_for_format_domains() {
+    fn should_return_domain_parser_when_format_is_domains() {
         let parser = parser_for_format(BlocklistFormat::Domains);
         let content = "example.com\n*.test.com";
         let domains = parser
@@ -110,7 +110,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parser_for_format_hosts() {
+    fn should_return_hosts_parser_when_format_is_hosts() {
         let parser = parser_for_format(BlocklistFormat::Hosts);
         let content = "0.0.0.0 ads.example.com";
         let domains = parser
@@ -120,7 +120,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parser_for_format_adblock() {
+    fn should_return_adblock_parser_when_format_is_adblock() {
         let parser = parser_for_format(BlocklistFormat::Adblock);
         let content = "||ads.example.com^";
         let domains = parser

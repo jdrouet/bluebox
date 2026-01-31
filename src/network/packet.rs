@@ -241,7 +241,7 @@ mod tests {
     }
 
     #[test]
-    fn test_build_ipv4_response() {
+    fn should_build_valid_ipv4_response_packet() {
         let pool = BufferPool::new(4);
         let builder = PacketBuilder::new(pool);
         let response = create_test_response();
@@ -281,7 +281,7 @@ mod tests {
     }
 
     #[test]
-    fn test_build_ipv6_response() {
+    fn should_build_valid_ipv6_response_packet() {
         let pool = BufferPool::new(4);
         let builder = PacketBuilder::new(pool);
         let response = create_test_response();
@@ -297,7 +297,7 @@ mod tests {
     }
 
     #[test]
-    fn test_mixed_ip_versions_error() {
+    fn should_return_error_for_mixed_ip_versions() {
         let pool = BufferPool::new(4);
         let builder = PacketBuilder::new(pool);
         let response = create_test_response();

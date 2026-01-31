@@ -202,7 +202,7 @@ pub mod tests {
     }
 
     #[test]
-    fn test_mock_capture() {
+    fn should_return_packets_in_order_from_mock_capture() {
         let packets = vec![vec![1, 2, 3], vec![4, 5, 6]];
         let mut capture = MockCapture::new(packets);
 
@@ -212,7 +212,7 @@ pub mod tests {
     }
 
     #[test]
-    fn test_mock_sender() {
+    fn should_track_sent_packets_in_mock_sender() {
         let mut sender = MockSender::new();
 
         sender.send(&[1, 2, 3]).unwrap();
@@ -224,7 +224,7 @@ pub mod tests {
     }
 
     #[test]
-    fn test_packet_info_equality() {
+    fn should_compare_packet_info_by_value() {
         use std::net::{Ipv4Addr, Ipv6Addr};
 
         let info1 = PacketInfo {

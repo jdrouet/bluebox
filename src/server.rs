@@ -234,7 +234,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_query_handler_blocked_domain() {
+    async fn should_return_blocked_response_for_blocked_domain() {
         let cache = MockCache::new();
         let resolver = MockResolver::new();
         let blocker = Blocker::new(["blocked.com", "*.ads.net"]);
@@ -259,7 +259,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_query_handler_cache_hit() {
+    async fn should_return_cached_response_on_cache_hit() {
         let cache = MockCache::new();
         let resolver = MockResolver::new();
         let blocker = Blocker::default();
@@ -284,7 +284,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_query_handler_cache_miss() {
+    async fn should_resolve_and_cache_on_cache_miss() {
         let cache = MockCache::new();
         let resolver = MockResolver::new();
 
@@ -307,7 +307,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_query_handler_resolver_error() {
+    async fn should_return_error_when_resolver_fails() {
         let cache = MockCache::new();
         let resolver = MockResolver::new();
         resolver.set_error("connection refused").await;
@@ -322,7 +322,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_query_handler_clone() {
+    async fn should_share_blocker_when_cloned() {
         let cache = MockCache::new();
         let resolver = MockResolver::new();
         let blocker = Blocker::new(["blocked.com"]);
@@ -337,14 +337,14 @@ mod tests {
     }
 
     #[test]
-    fn test_server_config_default() {
+    fn should_use_default_server_config_values() {
         let config = ServerConfig::default();
         assert_eq!(config.channel_capacity, 1000);
         assert_eq!(config.buffer_pool_size, 64);
     }
 
     #[tokio::test]
-    async fn test_query_handler_empty_query() {
+    async fn should_return_same_message_when_query_is_empty() {
         let cache = MockCache::new();
         let resolver = MockResolver::new();
         let blocker = Blocker::default();

@@ -289,7 +289,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_valid_config() {
+    fn should_parse_valid_config() {
         let toml = r#"
             upstream_resolver = "1.1.1.1:53"
             cache_ttl_seconds = 600
@@ -304,7 +304,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_with_interface() {
+    fn should_parse_config_with_interface() {
         let toml = r#"
             interface = "eth0"
             upstream_resolver = "8.8.8.8:53"
@@ -315,7 +315,7 @@ mod tests {
     }
 
     #[test]
-    fn test_default_values() {
+    fn should_use_default_values_when_not_specified() {
         let toml = r#"
             upstream_resolver = "1.1.1.1:53"
         "#;
@@ -329,7 +329,7 @@ mod tests {
     }
 
     #[test]
-    fn test_arp_spoof_config() {
+    fn should_parse_arp_spoof_config() {
         let toml = r#"
             upstream_resolver = "1.1.1.1:53"
 
@@ -353,7 +353,7 @@ mod tests {
     }
 
     #[test]
-    fn test_arp_spoof_defaults() {
+    fn should_use_arp_spoof_defaults_when_not_specified() {
         let toml = r#"
             upstream_resolver = "1.1.1.1:53"
 
@@ -370,7 +370,7 @@ mod tests {
     }
 
     #[test]
-    fn test_invalid_resolver_address() {
+    fn should_reject_invalid_resolver_address() {
         let toml = r#"
             upstream_resolver = "not-an-address"
         "#;
@@ -379,7 +379,7 @@ mod tests {
     }
 
     #[test]
-    fn test_zero_cache_ttl_rejected() {
+    fn should_reject_zero_cache_ttl() {
         let toml = r#"
             upstream_resolver = "1.1.1.1:53"
             cache_ttl_seconds = 0
@@ -389,7 +389,7 @@ mod tests {
     }
 
     #[test]
-    fn test_empty_blocklist_pattern_rejected() {
+    fn should_reject_empty_blocklist_pattern() {
         let toml = r#"
             upstream_resolver = "1.1.1.1:53"
             blocklist = ["example.com", ""]
@@ -399,7 +399,7 @@ mod tests {
     }
 
     #[test]
-    fn test_unknown_field_rejected() {
+    fn should_reject_unknown_field() {
         let toml = r#"
             upstream_resolver = "1.1.1.1:53"
             unknown_field = "value"
@@ -409,7 +409,7 @@ mod tests {
     }
 
     #[test]
-    fn test_zero_spoof_interval_rejected() {
+    fn should_reject_zero_spoof_interval() {
         let toml = r#"
             upstream_resolver = "1.1.1.1:53"
 
@@ -422,7 +422,7 @@ mod tests {
     }
 
     #[test]
-    fn test_blocklist_source_file() {
+    fn should_parse_blocklist_source_file() {
         let toml = r#"
             upstream_resolver = "1.1.1.1:53"
 
@@ -451,7 +451,7 @@ mod tests {
     }
 
     #[test]
-    fn test_blocklist_source_remote() {
+    fn should_parse_blocklist_source_remote() {
         let toml = r#"
             upstream_resolver = "1.1.1.1:53"
 
@@ -484,7 +484,7 @@ mod tests {
     }
 
     #[test]
-    fn test_blocklist_source_defaults() {
+    fn should_use_blocklist_source_defaults() {
         let toml = r#"
             upstream_resolver = "1.1.1.1:53"
 
@@ -503,7 +503,7 @@ mod tests {
     }
 
     #[test]
-    fn test_blocklist_source_disabled() {
+    fn should_parse_disabled_blocklist_source() {
         let toml = r#"
             upstream_resolver = "1.1.1.1:53"
 
@@ -518,7 +518,7 @@ mod tests {
     }
 
     #[test]
-    fn test_blocklist_source_adblock_format() {
+    fn should_parse_blocklist_source_adblock_format() {
         let toml = r#"
             upstream_resolver = "1.1.1.1:53"
 
@@ -533,7 +533,7 @@ mod tests {
     }
 
     #[test]
-    fn test_multiple_blocklist_sources() {
+    fn should_parse_multiple_blocklist_sources() {
         let toml = r#"
             upstream_resolver = "1.1.1.1:53"
 
@@ -554,7 +554,7 @@ mod tests {
     }
 
     #[test]
-    fn test_blocklist_sources_with_legacy_blocklist() {
+    fn should_parse_blocklist_sources_with_legacy_blocklist() {
         let toml = r#"
             upstream_resolver = "1.1.1.1:53"
             blocklist = ["custom-domain.com"]
@@ -571,7 +571,7 @@ mod tests {
     }
 
     #[test]
-    fn test_blocklist_source_duplicate_name_rejected() {
+    fn should_reject_duplicate_blocklist_source_name() {
         let toml = r#"
             upstream_resolver = "1.1.1.1:53"
 
@@ -588,7 +588,7 @@ mod tests {
     }
 
     #[test]
-    fn test_blocklist_source_empty_name_rejected() {
+    fn should_reject_empty_blocklist_source_name() {
         let toml = r#"
             upstream_resolver = "1.1.1.1:53"
 
@@ -601,7 +601,7 @@ mod tests {
     }
 
     #[test]
-    fn test_blocklist_source_empty_path_rejected() {
+    fn should_reject_empty_blocklist_source_path() {
         let toml = r#"
             upstream_resolver = "1.1.1.1:53"
 
@@ -614,7 +614,7 @@ mod tests {
     }
 
     #[test]
-    fn test_blocklist_source_empty_url_rejected() {
+    fn should_reject_empty_blocklist_source_url() {
         let toml = r#"
             upstream_resolver = "1.1.1.1:53"
 
@@ -627,7 +627,7 @@ mod tests {
     }
 
     #[test]
-    fn test_blocklist_source_invalid_url_rejected() {
+    fn should_reject_invalid_blocklist_source_url() {
         let toml = r#"
             upstream_resolver = "1.1.1.1:53"
 
@@ -640,7 +640,7 @@ mod tests {
     }
 
     #[test]
-    fn test_blocklist_source_unknown_field_rejected() {
+    fn should_reject_unknown_blocklist_source_field() {
         let toml = r#"
             upstream_resolver = "1.1.1.1:53"
 
@@ -654,7 +654,7 @@ mod tests {
     }
 
     #[test]
-    fn test_zero_buffer_pool_size_rejected() {
+    fn should_reject_zero_buffer_pool_size() {
         let toml = r#"
             upstream_resolver = "1.1.1.1:53"
             buffer_pool_size = 0
@@ -664,7 +664,7 @@ mod tests {
     }
 
     #[test]
-    fn test_zero_channel_capacity_rejected() {
+    fn should_reject_zero_channel_capacity() {
         let toml = r#"
             upstream_resolver = "1.1.1.1:53"
             channel_capacity = 0
@@ -674,7 +674,7 @@ mod tests {
     }
 
     #[test]
-    fn test_invalid_wildcard_pattern_rejected() {
+    fn should_reject_invalid_wildcard_pattern() {
         let toml = r#"
             upstream_resolver = "1.1.1.1:53"
             blocklist = ["*."]
@@ -684,7 +684,7 @@ mod tests {
     }
 
     #[test]
-    fn test_blocklist_source_file_with_refresh_interval() {
+    fn should_allow_file_source_with_refresh_interval() {
         // This should parse successfully but emit a warning
         let toml = r#"
             upstream_resolver = "1.1.1.1:53"
@@ -701,7 +701,7 @@ mod tests {
     }
 
     #[test]
-    fn test_config_load_nonexistent_file() {
+    fn should_return_error_when_loading_nonexistent_file() {
         let result = Config::load("/nonexistent/path/to/config.toml");
         assert!(result.is_err());
     }

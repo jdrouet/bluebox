@@ -149,49 +149,49 @@ mod tests {
     }
 
     #[test]
-    fn test_simple_hosts() {
+    fn should_parse_simple_hosts_entry() {
         let content = "0.0.0.0 ads.example.com";
         let domains = parse(content).unwrap();
         assert_eq!(domains, vec!["ads.example.com"]);
     }
 
     #[test]
-    fn test_multiple_domains_per_line() {
+    fn should_parse_multiple_domains_per_line() {
         let content = "0.0.0.0 ads.example.com tracker.example.com";
         let domains = parse(content).unwrap();
         assert_eq!(domains, vec!["ads.example.com", "tracker.example.com"]);
     }
 
     #[test]
-    fn test_127_ip() {
+    fn should_parse_entries_with_127_ip() {
         let content = "127.0.0.1 ads.example.com";
         let domains = parse(content).unwrap();
         assert_eq!(domains, vec!["ads.example.com"]);
     }
 
     #[test]
-    fn test_comments() {
+    fn should_skip_comment_lines() {
         let content = "# Comment\n0.0.0.0 ads.example.com\n# Another comment";
         let domains = parse(content).unwrap();
         assert_eq!(domains, vec!["ads.example.com"]);
     }
 
     #[test]
-    fn test_inline_comments() {
+    fn should_strip_inline_comments() {
         let content = "0.0.0.0 ads.example.com # This is an inline comment";
         let domains = parse(content).unwrap();
         assert_eq!(domains, vec!["ads.example.com"]);
     }
 
     #[test]
-    fn test_ignores_localhost() {
+    fn should_ignore_localhost_entries() {
         let content = "127.0.0.1 localhost\n0.0.0.0 ads.example.com";
         let domains = parse(content).unwrap();
         assert_eq!(domains, vec!["ads.example.com"]);
     }
 
     #[test]
-    fn test_ignores_all_system_domains() {
+    fn should_ignore_all_system_domains() {
         let content = r"
 127.0.0.1 localhost
 127.0.0.1 localhost.localdomain
@@ -206,7 +206,7 @@ mod tests {
     }
 
     #[test]
-    fn test_ignores_non_blocking_ips() {
+    fn should_ignore_non_blocking_ips() {
         let content = r"
 192.168.1.1 router.local
 10.0.0.1 server.local
@@ -217,7 +217,7 @@ mod tests {
     }
 
     #[test]
-    fn test_ignores_ip_like_entries() {
+    fn should_ignore_ip_like_entries() {
         let content = r"
 0.0.0.0 0.0.0.0
 0.0.0.0 0.0.0.0.0.0.0.0
@@ -228,42 +228,42 @@ mod tests {
     }
 
     #[test]
-    fn test_empty_file() {
+    fn should_return_empty_vec_when_file_is_empty() {
         let content = "";
         let domains = parse(content).unwrap();
         assert!(domains.is_empty());
     }
 
     #[test]
-    fn test_only_comments() {
+    fn should_return_empty_vec_when_file_contains_only_comments() {
         let content = "# Comment 1\n# Comment 2";
         let domains = parse(content).unwrap();
         assert!(domains.is_empty());
     }
 
     #[test]
-    fn test_empty_lines() {
+    fn should_skip_empty_lines() {
         let content = "0.0.0.0 ads.example.com\n\n\n0.0.0.0 tracker.example.com";
         let domains = parse(content).unwrap();
         assert_eq!(domains, vec!["ads.example.com", "tracker.example.com"]);
     }
 
     #[test]
-    fn test_whitespace_variations() {
+    fn should_handle_variable_whitespace() {
         let content = "  0.0.0.0   ads.example.com   tracker.example.com  ";
         let domains = parse(content).unwrap();
         assert_eq!(domains, vec!["ads.example.com", "tracker.example.com"]);
     }
 
     #[test]
-    fn test_tabs() {
+    fn should_handle_tab_separators() {
         let content = "0.0.0.0\tads.example.com\ttracker.example.com";
         let domains = parse(content).unwrap();
         assert_eq!(domains, vec!["ads.example.com", "tracker.example.com"]);
     }
 
     #[test]
-    fn test_steven_black_sample() {
+    fn should_parse_steven_black_hosts_format() {
         let content = r"
 # Title: StevenBlack/hosts
 # Date: 2024-01-01
@@ -302,7 +302,7 @@ ff02::3 ip6-allhosts
     }
 
     #[test]
-    fn test_malformed_lines() {
+    fn should_skip_malformed_lines() {
         let content = r"
 0.0.0.0
 just-a-domain.com
@@ -315,21 +315,21 @@ incomplete
     }
 
     #[test]
-    fn test_case_insensitive_localhost() {
+    fn should_ignore_localhost_case_insensitively() {
         let content = "127.0.0.1 LOCALHOST\n127.0.0.1 LocalHost\n0.0.0.0 ads.example.com";
         let domains = parse(content).unwrap();
         assert_eq!(domains, vec!["ads.example.com"]);
     }
 
     #[test]
-    fn test_windows_line_endings() {
+    fn should_handle_windows_line_endings() {
         let content = "0.0.0.0 ads.example.com\r\n0.0.0.0 tracker.example.com\r\n";
         let domains = parse(content).unwrap();
         assert_eq!(domains, vec!["ads.example.com", "tracker.example.com"]);
     }
 
     #[test]
-    fn test_is_ip_like() {
+    fn should_detect_ip_like_strings() {
         assert!(is_ip_like("0.0.0.0"));
         assert!(is_ip_like("127.0.0.1"));
         assert!(is_ip_like("192.168.1.1"));
@@ -342,7 +342,7 @@ incomplete
     }
 
     #[test]
-    fn test_real_world_dan_pollock() {
+    fn should_parse_dan_pollock_hosts_format() {
         // Sample from Dan Pollock's hosts file format
         let content = r"
 # This hosts file is brought to you by Dan Pollock
@@ -373,7 +373,7 @@ incomplete
     }
 
     #[test]
-    fn test_ipv6_entries_ignored() {
+    fn should_ignore_ipv6_entries() {
         let content = r"
 ::1 localhost
 fe80::1%lo0 localhost

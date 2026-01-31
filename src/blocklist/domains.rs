@@ -70,42 +70,42 @@ mod tests {
     }
 
     #[test]
-    fn test_simple_domains() {
+    fn should_parse_simple_domains() {
         let content = "example.com\ntest.org\nanother.net";
         let domains = parse(content).unwrap();
         assert_eq!(domains, vec!["example.com", "test.org", "another.net"]);
     }
 
     #[test]
-    fn test_with_comments() {
+    fn should_skip_comments_when_line_starts_with_hash() {
         let content = "# Comment line\nexample.com\n# Another comment\ntest.org";
         let domains = parse(content).unwrap();
         assert_eq!(domains, vec!["example.com", "test.org"]);
     }
 
     #[test]
-    fn test_empty_lines() {
+    fn should_skip_empty_lines() {
         let content = "example.com\n\n\ntest.org\n\n";
         let domains = parse(content).unwrap();
         assert_eq!(domains, vec!["example.com", "test.org"]);
     }
 
     #[test]
-    fn test_whitespace_trimming() {
+    fn should_trim_whitespace_from_domains() {
         let content = "  example.com  \n\ttest.org\t\n  another.net";
         let domains = parse(content).unwrap();
         assert_eq!(domains, vec!["example.com", "test.org", "another.net"]);
     }
 
     #[test]
-    fn test_wildcard_domains() {
+    fn should_preserve_wildcard_domains() {
         let content = "*.example.com\n*.ads.test.org";
         let domains = parse(content).unwrap();
         assert_eq!(domains, vec!["*.example.com", "*.ads.test.org"]);
     }
 
     #[test]
-    fn test_mixed_content() {
+    fn should_handle_mixed_content_with_comments_and_domains() {
         let content = r"
 # Blocklist for ads
 example.com
@@ -122,28 +122,28 @@ tracker.example.org
     }
 
     #[test]
-    fn test_empty_file() {
+    fn should_return_empty_vec_when_file_is_empty() {
         let content = "";
         let domains = parse(content).unwrap();
         assert!(domains.is_empty());
     }
 
     #[test]
-    fn test_only_comments() {
+    fn should_return_empty_vec_when_file_contains_only_comments() {
         let content = "# Comment 1\n# Comment 2\n# Comment 3";
         let domains = parse(content).unwrap();
         assert!(domains.is_empty());
     }
 
     #[test]
-    fn test_only_empty_lines() {
+    fn should_return_empty_vec_when_file_contains_only_empty_lines() {
         let content = "\n\n\n\n";
         let domains = parse(content).unwrap();
         assert!(domains.is_empty());
     }
 
     #[test]
-    fn test_comment_with_space() {
+    fn should_skip_indented_comments() {
         let content = "  # Indented comment\nexample.com";
         let domains = parse(content).unwrap();
         // Trimmed line starts with #, so it's a comment
@@ -151,7 +151,7 @@ tracker.example.org
     }
 
     #[test]
-    fn test_inline_content_preserved() {
+    fn should_preserve_inline_hash_when_not_at_start() {
         // Domain with hash that's not at the start (not treated as comment)
         let content = "example.com#not-a-comment";
         let domains = parse(content).unwrap();
@@ -159,7 +159,7 @@ tracker.example.org
     }
 
     #[test]
-    fn test_subdomain_patterns() {
+    fn should_parse_subdomain_patterns() {
         let content = "ads.facebook.com\ntrack.google.com\n*.doubleclick.net";
         let domains = parse(content).unwrap();
         assert_eq!(
@@ -169,7 +169,7 @@ tracker.example.org
     }
 
     #[test]
-    fn test_real_world_sample() {
+    fn should_parse_real_world_blocklist_sample() {
         // Sample from common blocklists
         let content = r"
 # Title: Personal blocklist
@@ -195,14 +195,14 @@ pixel.facebook.com
     }
 
     #[test]
-    fn test_windows_line_endings() {
+    fn should_handle_windows_line_endings() {
         let content = "example.com\r\ntest.org\r\n";
         let domains = parse(content).unwrap();
         assert_eq!(domains, vec!["example.com", "test.org"]);
     }
 
     #[test]
-    fn test_mixed_line_endings() {
+    fn should_handle_mixed_line_endings() {
         let content = "example.com\ntest.org\r\nanother.net\r";
         let domains = parse(content).unwrap();
         // Note: \r alone doesn't create a new line in BufRead, it becomes part of the string

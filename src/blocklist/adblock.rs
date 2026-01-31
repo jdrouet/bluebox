@@ -125,91 +125,91 @@ mod tests {
     }
 
     #[test]
-    fn test_simple_domain_rule() {
+    fn should_parse_simple_domain_rule() {
         let content = "||ads.example.com^";
         let domains = parse(content).unwrap();
         assert_eq!(domains, vec!["ads.example.com"]);
     }
 
     #[test]
-    fn test_multiple_rules() {
+    fn should_parse_multiple_rules() {
         let content = "||ads.example.com^\n||tracker.example.org^";
         let domains = parse(content).unwrap();
         assert_eq!(domains, vec!["ads.example.com", "tracker.example.org"]);
     }
 
     #[test]
-    fn test_comments() {
+    fn should_skip_comments_starting_with_exclamation() {
         let content = "! This is a comment\n||ads.example.com^\n! Another comment";
         let domains = parse(content).unwrap();
         assert_eq!(domains, vec!["ads.example.com"]);
     }
 
     #[test]
-    fn test_exception_rules_skipped() {
+    fn should_skip_exception_rules() {
         let content = "||ads.example.com^\n@@||allowed.example.com^\n||tracker.example.com^";
         let domains = parse(content).unwrap();
         assert_eq!(domains, vec!["ads.example.com", "tracker.example.com"]);
     }
 
     #[test]
-    fn test_rules_with_modifiers() {
+    fn should_extract_domain_from_rules_with_modifiers() {
         let content = "||ads.example.com^$third-party\n||tracker.example.com^$script,image";
         let domains = parse(content).unwrap();
         assert_eq!(domains, vec!["ads.example.com", "tracker.example.com"]);
     }
 
     #[test]
-    fn test_rules_with_pipe_ending() {
+    fn should_handle_rules_with_pipe_ending() {
         let content = "||ads.example.com^|";
         let domains = parse(content).unwrap();
         assert_eq!(domains, vec!["ads.example.com"]);
     }
 
     #[test]
-    fn test_empty_file() {
+    fn should_return_empty_vec_when_file_is_empty() {
         let content = "";
         let domains = parse(content).unwrap();
         assert!(domains.is_empty());
     }
 
     #[test]
-    fn test_only_comments() {
+    fn should_return_empty_vec_when_file_contains_only_comments() {
         let content = "! Comment 1\n! Comment 2\n! Title: Some Filter List";
         let domains = parse(content).unwrap();
         assert!(domains.is_empty());
     }
 
     #[test]
-    fn test_empty_lines() {
+    fn should_skip_empty_lines() {
         let content = "||ads.example.com^\n\n\n||tracker.example.com^";
         let domains = parse(content).unwrap();
         assert_eq!(domains, vec!["ads.example.com", "tracker.example.com"]);
     }
 
     #[test]
-    fn test_element_hiding_rules_skipped() {
+    fn should_skip_element_hiding_rules() {
         let content = "||ads.example.com^\nexample.com##.ad-banner\n##.ad-class";
         let domains = parse(content).unwrap();
         assert_eq!(domains, vec!["ads.example.com"]);
     }
 
     #[test]
-    fn test_element_hiding_exception_skipped() {
+    fn should_skip_element_hiding_exceptions() {
         let content = "||ads.example.com^\nexample.com#@#.ad-banner";
         let domains = parse(content).unwrap();
         assert_eq!(domains, vec!["ads.example.com"]);
     }
 
     #[test]
-    fn test_extended_css_rules_skipped() {
+    fn should_skip_extended_css_rules() {
         let content = "||ads.example.com^\nexample.com#?#.ad-banner:-abp-has(.sponsor)";
         let domains = parse(content).unwrap();
         assert_eq!(domains, vec!["ads.example.com"]);
     }
 
     #[test]
-    fn test_url_patterns_skipped() {
+    fn should_skip_url_pattern_rules() {
         let content = "||ads.example.com^\n/ads/*\n|http://example.com/ads";
         let domains = parse(content).unwrap();
         // URL patterns without || are not parsed
@@ -217,21 +217,21 @@ mod tests {
     }
 
     #[test]
-    fn test_invalid_domains_skipped() {
+    fn should_skip_invalid_domain_rules() {
         let content = "||^\n||\n||nodot^\n||ads.example.com^";
         let domains = parse(content).unwrap();
         assert_eq!(domains, vec!["ads.example.com"]);
     }
 
     #[test]
-    fn test_wildcard_subdomains() {
+    fn should_preserve_wildcard_subdomains() {
         let content = "||*.ads.example.com^";
         let domains = parse(content).unwrap();
         assert_eq!(domains, vec!["*.ads.example.com"]);
     }
 
     #[test]
-    fn test_complex_wildcards_skipped() {
+    fn should_skip_complex_wildcards_in_middle() {
         // Wildcards in the middle are not supported
         let content = "||ads*.example.com^\n||ads.example.com^";
         let domains = parse(content).unwrap();
@@ -239,7 +239,7 @@ mod tests {
     }
 
     #[test]
-    fn test_adguard_dns_filter_sample() {
+    fn should_parse_adguard_dns_filter_format() {
         let content = r"
 ! Title: AdGuard DNS filter
 ! Description: Filter composed of several other filters
@@ -265,7 +265,7 @@ mod tests {
     }
 
     #[test]
-    fn test_easylist_sample() {
+    fn should_parse_easylist_format() {
         let content = r"
 [Adblock Plus 2.0]
 ! Title: EasyList
@@ -290,21 +290,21 @@ mod tests {
     }
 
     #[test]
-    fn test_whitespace_handling() {
+    fn should_trim_whitespace_from_rules() {
         let content = "  ||ads.example.com^  \n\t||tracker.example.com^\t";
         let domains = parse(content).unwrap();
         assert_eq!(domains, vec!["ads.example.com", "tracker.example.com"]);
     }
 
     #[test]
-    fn test_windows_line_endings() {
+    fn should_handle_windows_line_endings() {
         let content = "||ads.example.com^\r\n||tracker.example.com^\r\n";
         let domains = parse(content).unwrap();
         assert_eq!(domains, vec!["ads.example.com", "tracker.example.com"]);
     }
 
     #[test]
-    fn test_parse_domain_rule_function() {
+    fn should_extract_domain_from_various_rule_formats() {
         assert_eq!(
             parse_domain_rule("||example.com^"),
             Some("example.com".to_string())
@@ -328,7 +328,7 @@ mod tests {
     }
 
     #[test]
-    fn test_rules_with_path() {
+    fn should_extract_domain_from_rules_with_path() {
         // Rules with paths should extract just the domain
         let content = "||ads.example.com/tracking/pixel.gif^";
         let domains = parse(content).unwrap();
@@ -336,7 +336,7 @@ mod tests {
     }
 
     #[test]
-    fn test_header_lines() {
+    fn should_skip_header_lines() {
         // Various header formats used by different lists
         let content = r"
 [Adblock Plus 2.0]
