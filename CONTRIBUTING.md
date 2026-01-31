@@ -45,6 +45,41 @@ We use pedantic clippy lints. The full configuration is in `Cargo.toml`. Key rul
 - No unsafe code (`unsafe_code = "forbid"`)
 - All warnings treated as errors in CI
 
+### Naming Conventions
+
+**Error variables**: Use descriptive names for error variables, not single letters.
+
+```rust
+// Good
+if let Err(err) = operation() {
+    warn!("Operation failed: {}", err);
+}
+
+match result {
+    Ok(value) => process(value),
+    Err(load_err) => handle_error(load_err),
+}
+
+// Avoid
+if let Err(e) = operation() {
+    warn!("Operation failed: {}", e);
+}
+```
+
+### Comments
+
+Avoid large separator comments or ASCII art banners. Use simple doc comments and let the code structure speak for itself.
+
+```rust
+// Good - simple module documentation
+/// Handles blocklist loading from various sources.
+
+// Avoid - decorative separators
+// =============================================================================
+// Blocklist Loading
+// =============================================================================
+```
+
 ## Architecture
 
 The codebase is organized into modules with clear responsibilities:

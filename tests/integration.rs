@@ -185,10 +185,6 @@ async fn should_manage_buffer_pool_correctly() {
     assert_eq!(pool.available(), 4);
 }
 
-// =============================================================================
-// File Loader Integration Tests
-// =============================================================================
-
 #[tokio::test]
 async fn should_load_blocklist_file_and_block_domains() {
     // Create a temporary blocklist file

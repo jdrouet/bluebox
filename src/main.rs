@@ -59,10 +59,10 @@ async fn load_blocklists(config: &Config) -> Vec<String> {
                         );
                         all_patterns.extend(patterns);
                     }
-                    Err(e) => {
+                    Err(err) => {
                         error!(
                             name = ?source.name,
-                            error = ?e,
+                            error = ?err,
                             "failed to load blocklist"
                         );
                     }
@@ -130,8 +130,8 @@ fn spawn_arp_spoof_task(
         while running.load(Ordering::SeqCst) {
             ticker.tick().await;
             let mut guard = spoofer.lock();
-            if let Err(e) = guard.spoof_all() {
-                warn!("Failed to send ARP spoof packets: {}", e);
+            if let Err(err) = guard.spoof_all() {
+                warn!("Failed to send ARP spoof packets: {}", err);
             }
         }
     })
@@ -206,8 +206,8 @@ async fn wait_for_shutdown(
             running.store(false, Ordering::SeqCst);
         }
         result = server_handle => {
-            if let Err(e) = result {
-                tracing::error!("Server task failed: {}", e);
+            if let Err(err) = result {
+                tracing::error!("Server task failed: {}", err);
             }
         }
     }
@@ -218,8 +218,8 @@ async fn wait_for_shutdown(
     {
         info!("Restoring ARP tables...");
         let mut guard = spoofer.lock();
-        if let Err(e) = guard.restore_all() {
-            warn!("Failed to restore ARP tables: {}", e);
+        if let Err(err) = guard.restore_all() {
+            warn!("Failed to restore ARP tables: {}", err);
         }
     }
 
@@ -314,8 +314,9 @@ async fn run() -> Result<()> {
     // Spawn server task
     let server_running = Arc::clone(&running);
     let server_handle = tokio::spawn(async move {
-        if let Err(e) = run_server(packet_rx, handler, sender, buffer_pool, server_running).await {
-            error!("Server error: {:?}", e);
+        if let Err(err) = run_server(packet_rx, handler, sender, buffer_pool, server_running).await
+        {
+            error!("Server error: {:?}", err);
         }
     });
 
