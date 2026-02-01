@@ -11,7 +11,7 @@ categories = ["network-programming"]
 [dependencies]
 # Error handling
 anyhow = "1.0"
-thiserror = "1.0"
+thiserror = "2.0"
 
 # DNS protocol
 hickory-proto = "0.24"
