@@ -40,7 +40,7 @@ use crate::config::BlocklistFormat;
 #[derive(Debug, thiserror::Error)]
 pub enum ParseError {
     /// I/O error during reading.
-    #[error("I/O error: {0}")]
+    #[error("I/O error")]
     Io(#[from] std::io::Error),
 
     /// Invalid line encountered during parsing.

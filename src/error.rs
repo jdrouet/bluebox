@@ -8,38 +8,38 @@ use thiserror::Error;
 /// Main error type for Bluebox operations.
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("configuration error: {0}")]
+    #[error("configuration error")]
     Config(#[from] ConfigError),
 
-    #[error("network error: {0}")]
+    #[error("network error")]
     Network(#[from] NetworkError),
 
-    #[error("DNS protocol error: {0}")]
+    #[error("DNS protocol error")]
     Protocol(#[from] hickory_proto::ProtoError),
 
     #[error("resolver error: {0}")]
     Resolver(String),
 
-    #[error("I/O error: {0}")]
+    #[error("I/O error")]
     Io(#[from] io::Error),
 
-    #[error("metrics error: {0}")]
+    #[error("metrics error")]
     Metrics(#[from] metrics_exporter_prometheus::BuildError),
 }
 
 /// Configuration-related errors.
 #[derive(Debug, Error)]
 pub enum ConfigError {
-    #[error("failed to read config file: {0}")]
+    #[error("failed to read config file")]
     ReadFile(#[source] io::Error),
 
-    #[error("failed to parse config: {0}")]
+    #[error("failed to parse config")]
     Parse(#[source] toml::de::Error),
 
-    #[error("invalid upstream resolver address: {0}")]
+    #[error("invalid upstream resolver address")]
     InvalidResolver(#[source] AddrParseError),
 
-    #[error("validation failed: {0}")]
+    #[error("validation failed")]
     Validation(#[from] ValidationError),
 }
 

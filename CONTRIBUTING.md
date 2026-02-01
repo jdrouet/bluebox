@@ -143,6 +143,70 @@ src/
    tracing::error!("failed to load blocklist: {}", source.name);
    ```
 
+### Error Message Formatting
+
+When defining error types with `thiserror`, **do not include the source error in the `#[error]` message**. The error chain is automatically handled by `anyhow` when displaying errors. Including the source creates duplicate information in error output.
+
+```rust
+// Good - source is not included in the message
+#[derive(Debug, thiserror::Error)]
+pub enum ConfigError {
+    #[error("failed to read config file")]
+    ReadFile(#[source] std::io::Error),
+
+    #[error("failed to parse config")]
+    Parse(#[source] toml::de::Error),
+}
+
+// Avoid - source is duplicated in the message
+#[derive(Debug, thiserror::Error)]
+pub enum ConfigError {
+    #[error("failed to read config file: {0}")]
+    ReadFile(#[source] std::io::Error),
+
+    #[error("failed to parse config: {0}")]
+    Parse(#[source] toml::de::Error),
+}
+```
+
+With the correct approach, error output looks clean:
+
+```
+Error: Failed to load configuration
+
+Caused by:
+    0: configuration error
+    1: failed to read config file
+    2: No such file or directory (os error 2)
+```
+
+With the incorrect approach, you get duplicated information:
+
+```
+Error: Failed to load configuration
+
+Caused by:
+    0: configuration error: failed to read config file: No such file or directory (os error 2)
+    1: failed to read config file: No such file or directory (os error 2)
+    2: No such file or directory (os error 2)
+```
+
+**Exception**: Include context directly in the message when it's not from a source error:
+
+```rust
+// Good - url and status are not source errors, they're context
+#[error("HTTP request failed for {url}: status {status}")]
+HttpStatus { url: String, status: u16 },
+
+// Good - path is context, source is separate
+#[error("I/O error reading {path:?}")]
+Io {
+    path: PathBuf,
+    #[source]
+    source: std::io::Error,
+},
+```
+
 ## Testing
 
 ### Test Naming Convention

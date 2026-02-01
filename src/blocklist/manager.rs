@@ -22,11 +22,11 @@ pub enum ManagerError {
     UnknownSource(String),
 
     /// Failed to load blocklist from file.
-    #[error("failed to load file blocklist: {0}")]
+    #[error("failed to load file blocklist")]
     FileLoad(#[from] LoadError),
 
     /// Failed to load blocklist from remote URL.
-    #[error("failed to load remote blocklist: {0}")]
+    #[error("failed to load remote blocklist")]
     RemoteLoad(#[from] super::remote::RemoteLoadError),
 }
 

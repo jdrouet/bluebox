@@ -24,7 +24,7 @@ pub enum LoadError {
     PermissionDenied(PathBuf),
 
     /// I/O error while reading the file.
-    #[error("I/O error reading {path:?}: {source}")]
+    #[error("I/O error reading {path:?}")]
     Io {
         /// Path to the file that caused the error.
         path: PathBuf,
@@ -34,11 +34,11 @@ pub enum LoadError {
     },
 
     /// Error parsing the blocklist content.
-    #[error("parse error: {0}")]
+    #[error("parse error")]
     Parse(#[from] ParseError),
 
     /// Task join error from spawning a blocking task.
-    #[error("task join error: {0}")]
+    #[error("task join error")]
     Join(#[from] tokio::task::JoinError),
 }
 

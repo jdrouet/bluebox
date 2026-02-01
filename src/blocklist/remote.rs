@@ -33,7 +33,7 @@ pub enum RemoteLoadError {
     },
 
     /// Network error during HTTP request.
-    #[error("network error fetching {url}: {source}")]
+    #[error("network error fetching {url}")]
     Network {
         /// URL that was requested.
         url: String,
@@ -50,11 +50,11 @@ pub enum RemoteLoadError {
     },
 
     /// Error parsing the blocklist content.
-    #[error("parse error: {0}")]
+    #[error("parse error")]
     Parse(#[from] ParseError),
 
     /// Task join error from spawning a blocking task.
-    #[error("task join error: {0}")]
+    #[error("task join error")]
     Join(#[from] tokio::task::JoinError),
 
     /// Cache not available for fallback.
@@ -62,7 +62,7 @@ pub enum RemoteLoadError {
     CacheUnavailable(PathBuf),
 
     /// I/O error during cache operations.
-    #[error("cache I/O error for {path:?}: {source}")]
+    #[error("cache I/O error for {path:?}")]
     CacheIo {
         /// Path to the cache file.
         path: PathBuf,
@@ -72,7 +72,7 @@ pub enum RemoteLoadError {
     },
 
     /// Failed to create HTTP client.
-    #[error("failed to create HTTP client: {0}")]
+    #[error("failed to create HTTP client")]
     ClientBuild(#[source] reqwest::Error),
 }
 
