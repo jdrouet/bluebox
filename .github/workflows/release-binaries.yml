@@ -26,18 +26,18 @@ jobs:
         include:
           - target: x86_64-unknown-linux-gnu
             artifact_name: bluebox-linux-amd64
-            build_deb: true
-            deb_arch: amd64
+            build_deb: false
           - target: aarch64-unknown-linux-gnu
             artifact_name: bluebox-linux-arm64
-            build_deb: true
-            deb_arch: arm64
+            build_deb: false
           - target: x86_64-unknown-linux-musl
             artifact_name: bluebox-linux-amd64-musl
-            build_deb: false
+            build_deb: true
+            deb_arch: amd64
           - target: aarch64-unknown-linux-musl
             artifact_name: bluebox-linux-arm64-musl
-            build_deb: false
+            build_deb: true
+            deb_arch: arm64
 
     steps:
       - name: Checkout repository
