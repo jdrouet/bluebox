@@ -18,26 +18,16 @@ env:
 
 jobs:
   build:
-    name: Build ${{ matrix.target }}
+    name: Build ${{ matrix.arch }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
-          - target: x86_64-unknown-linux-gnu
-            artifact_name: bluebox-linux-amd64
-            build_deb: false
-          - target: aarch64-unknown-linux-gnu
-            artifact_name: bluebox-linux-arm64
-            build_deb: false
-          - target: x86_64-unknown-linux-musl
-            artifact_name: bluebox-linux-amd64-musl
-            build_deb: true
-            deb_arch: amd64
-          - target: aarch64-unknown-linux-musl
-            artifact_name: bluebox-linux-arm64-musl
-            build_deb: true
-            deb_arch: arm64
+          - arch: amd64
+            target: x86_64-unknown-linux-musl
+          - arch: arm64
+            target: aarch64-unknown-linux-musl
 
     steps:
       - name: Checkout repository
@@ -45,72 +35,47 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
 
-      - name: Install cross-compilation tools
-        env:
-          NEEDRESTART_MODE: l
-          DEBIAN_FRONTEND: noninteractive
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends gcc-aarch64-linux-gnu musl-tools musl-dev
-          # Install aarch64 musl cross-compiler
-          if [[ "${{ matrix.target }}" == "aarch64-unknown-linux-musl" ]]; then
-            wget -q https://musl.cc/aarch64-linux-musl-cross.tgz
-            tar -xzf aarch64-linux-musl-cross.tgz
-            sudo mv aarch64-linux-musl-cross /opt/
-            echo "/opt/aarch64-linux-musl-cross/bin" >> $GITHUB_PATH
-          fi
-
-      - name: Configure cargo for cross-compilation
-        run: |
-          mkdir -p .cargo
-          cat >> .cargo/config.toml << EOF
-          [target.aarch64-unknown-linux-gnu]
-          linker = "aarch64-linux-gnu-gcc"
-
-          [target.aarch64-unknown-linux-musl]
-          linker = "aarch64-linux-musl-gcc"
-          EOF
-
-      - name: Cache cargo registry
+      - name: Cache cargo registry and build
         uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.target }}
+          cache-targets: true
+          cache-all-crates: true
 
-      - name: Build release binary
-        run: cargo build --release --locked --target ${{ matrix.target }}
+      - name: Install cross
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cross
 
-      - name: Prepare artifact
-        run: |
-          mkdir -p dist
-          cp target/${{ matrix.target }}/release/bluebox dist/${{ matrix.artifact_name }}
-          chmod +x dist/${{ matrix.artifact_name }}
-
-      - name: Generate SHA256 checksum
-        run: |
-          cd dist
-          sha256sum ${{ matrix.artifact_name }} > ${{ matrix.artifact_name }}.sha256
+      - name: Build
+        run: cross build --release --locked --target ${{ matrix.target }}
 
       - name: Install cargo-deb
-        if: matrix.build_deb
-        run: cargo install cargo-deb
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deb
 
-      - name: Build deb package
-        if: matrix.build_deb
+      - name: Prepare artifacts
         run: |
+          mkdir -p dist
+          cp target/${{ matrix.target }}/release/bluebox dist/bluebox-linux-${{ matrix.arch }}
+          chmod +x dist/bluebox-linux-${{ matrix.arch }}
           cargo deb --no-build --target ${{ matrix.target }}
-          cp target/${{ matrix.target }}/debian/*.deb dist/bluebox_${{ matrix.deb_arch }}.deb
-          cd dist
-          sha256sum bluebox_${{ matrix.deb_arch }}.deb > bluebox_${{ matrix.deb_arch }}.deb.sha256
+          cp target/${{ matrix.target }}/debian/*.deb dist/bluebox_${{ matrix.arch }}.deb
 
-      - name: Upload binary to release
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum bluebox-linux-${{ matrix.arch }} > bluebox-linux-${{ matrix.arch }}.sha256
+          sha256sum bluebox_${{ matrix.arch }}.deb > bluebox_${{ matrix.arch }}.deb.sha256
+
+      - name: Upload to release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.tag || github.ref_name }}
           files: |
-            dist/${{ matrix.artifact_name }}
-            dist/${{ matrix.artifact_name }}.sha256
-            dist/*.deb
-            dist/*.deb.sha256
+            dist/bluebox-linux-${{ matrix.arch }}
+            dist/bluebox-linux-${{ matrix.arch }}.sha256
+            dist/bluebox_${{ matrix.arch }}.deb
+            dist/bluebox_${{ matrix.arch }}.deb.sha256
