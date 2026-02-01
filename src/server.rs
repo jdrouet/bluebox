@@ -228,6 +228,7 @@ where
 }
 
 #[cfg(test)]
+#[allow(clippy::cast_possible_truncation)] // Test packet sizes are always small
 mod tests {
     use super::*;
     use crate::cache::dns_cache::tests::MockCache;
@@ -412,5 +413,222 @@ mod tests {
         assert_eq!(response.answers().len(), 1);
         // Resolver should NOT be called again
         assert_eq!(resolver.resolve_count(), 1);
+    }
+
+    #[tokio::test]
+    async fn should_process_query_and_build_response_packet() {
+        use crate::network::{BufferPool, PacketBuilder, PacketInfo};
+        use hickory_proto::serialize::binary::BinEncodable;
+        use pnet::util::MacAddr;
+        use std::net::{IpAddr, Ipv4Addr};
+
+        let cache = MockCache::new();
+        let resolver = MockResolver::new();
+
+        // Configure resolver to return a response
+        let name = Name::from_str("example.com").unwrap();
+        let upstream_response = create_response(0);
+        resolver.add_response(name, upstream_response).await;
+
+        let blocker = Blocker::default();
+        let handler = QueryHandler::new(cache, resolver, blocker);
+        let buffer_pool = BufferPool::new(4);
+        let packet_builder = PacketBuilder::new(buffer_pool);
+
+        let query = create_query("example.com", 123);
+        let dns_payload = query.to_bytes().unwrap();
+
+        let packet_info = PacketInfo {
+            source_mac: MacAddr::new(0x11, 0x22, 0x33, 0x44, 0x55, 0x66),
+            dest_mac: MacAddr::new(0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff),
+            source_ip: IpAddr::V4(Ipv4Addr::new(192, 168, 1, 100)),
+            dest_ip: IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)),
+            source_port: 12345,
+            dest_port: 53,
+        };
+
+        let result = process_query(&dns_payload, &packet_info, &handler, &packet_builder).await;
+        assert!(result.is_ok());
+
+        let response_packet = result.unwrap();
+        // Verify it's a valid Ethernet frame (at least 14 bytes header)
+        assert!(response_packet.len() > 14 + 20 + 8); // Ethernet + IP + UDP headers
+    }
+
+    #[tokio::test]
+    async fn should_run_server_and_process_packets() {
+        use crate::network::BufferPool;
+        use crate::network::capture::tests::MockSender;
+        use hickory_proto::serialize::binary::BinEncodable;
+        use pnet::packet::ethernet::{EtherTypes, MutableEthernetPacket};
+        use pnet::packet::ip::IpNextHeaderProtocols;
+        use pnet::packet::ipv4::MutableIpv4Packet;
+        use pnet::packet::udp::MutableUdpPacket;
+        use pnet::util::MacAddr;
+        use std::net::Ipv4Addr;
+
+        let cache = MockCache::new();
+        let resolver = MockResolver::new();
+
+        // Configure resolver to return a response
+        let name = Name::from_str("test.com").unwrap();
+        let upstream_response = create_response(0);
+        resolver.add_response(name, upstream_response).await;
+
+        let blocker = Blocker::default();
+        let handler = QueryHandler::new(cache, resolver, blocker);
+        let buffer_pool = BufferPool::new(4);
+        let sender = MockSender::new();
+        let running = Arc::new(AtomicBool::new(true));
+
+        // Create a channel for packets
+        let (tx, rx) = mpsc::channel(10);
+
+        // Build a valid DNS query packet
+        let query = create_query("test.com", 456);
+        let dns_bytes = query.to_bytes().unwrap();
+
+        let udp_len = 8 + dns_bytes.len();
+        let ipv4_len = 20 + udp_len;
+        let total_len = 14 + ipv4_len;
+
+        let mut buffer = vec![0u8; total_len];
+
+        // Build Ethernet header
+        {
+            let mut eth = MutableEthernetPacket::new(&mut buffer[..]).unwrap();
+            eth.set_source(MacAddr::new(0x11, 0x22, 0x33, 0x44, 0x55, 0x66));
+            eth.set_destination(MacAddr::new(0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff));
+            eth.set_ethertype(EtherTypes::Ipv4);
+        }
+
+        // Build IPv4 header
+        {
+            let mut ipv4 = MutableIpv4Packet::new(&mut buffer[14..]).unwrap();
+            ipv4.set_version(4);
+            ipv4.set_header_length(5);
+            ipv4.set_total_length(ipv4_len as u16);
+            ipv4.set_next_level_protocol(IpNextHeaderProtocols::Udp);
+            ipv4.set_source(Ipv4Addr::new(192, 168, 1, 100));
+            ipv4.set_destination(Ipv4Addr::new(192, 168, 1, 1));
+        }
+
+        // Build UDP header with DNS payload
+        {
+            let mut udp = MutableUdpPacket::new(&mut buffer[34..]).unwrap();
+            udp.set_source(12345);
+            udp.set_destination(53);
+            udp.set_length(udp_len as u16);
+            udp.set_payload(&dns_bytes);
+        }
+
+        // Send the packet
+        tx.send(buffer).await.unwrap();
+
+        // Close the channel to signal end
+        drop(tx);
+
+        // Run the server (it will process packets until channel is closed)
+        let result = run_server(rx, handler, sender.clone(), buffer_pool, running).await;
+        assert!(result.is_ok());
+
+        // Verify a response was sent
+        assert_eq!(sender.sent_count(), 1);
+    }
+
+    #[tokio::test]
+    async fn should_skip_non_dns_packets_in_server() {
+        use crate::network::BufferPool;
+        use crate::network::capture::tests::MockSender;
+        use pnet::packet::ethernet::{EtherTypes, MutableEthernetPacket};
+
+        let cache = MockCache::new();
+        let resolver = MockResolver::new();
+        let blocker = Blocker::default();
+        let handler = QueryHandler::new(cache, resolver, blocker);
+        let buffer_pool = BufferPool::new(4);
+        let sender = MockSender::new();
+        let running = Arc::new(AtomicBool::new(true));
+
+        let (tx, rx) = mpsc::channel(10);
+
+        // Send a non-IP packet (ARP)
+        let mut buffer = vec![0u8; 64];
+        {
+            let mut eth = MutableEthernetPacket::new(&mut buffer[..]).unwrap();
+            eth.set_ethertype(EtherTypes::Arp);
+        }
+        tx.send(buffer).await.unwrap();
+        drop(tx);
+
+        let result = run_server(rx, handler, sender.clone(), buffer_pool, running).await;
+        assert!(result.is_ok());
+
+        // No response should be sent for non-DNS packets
+        assert_eq!(sender.sent_count(), 0);
+    }
+
+    #[tokio::test]
+    async fn should_handle_malformed_dns_payload_gracefully() {
+        use crate::network::BufferPool;
+        use crate::network::capture::tests::MockSender;
+        use pnet::packet::ethernet::{EtherTypes, MutableEthernetPacket};
+        use pnet::packet::ip::IpNextHeaderProtocols;
+        use pnet::packet::ipv4::MutableIpv4Packet;
+        use pnet::packet::udp::MutableUdpPacket;
+        use pnet::util::MacAddr;
+        use std::net::Ipv4Addr;
+
+        let cache = MockCache::new();
+        let resolver = MockResolver::new();
+        let blocker = Blocker::default();
+        let handler = QueryHandler::new(cache, resolver, blocker);
+        let buffer_pool = BufferPool::new(4);
+        let sender = MockSender::new();
+        let running = Arc::new(AtomicBool::new(true));
+
+        let (tx, rx) = mpsc::channel(10);
+
+        // Build packet with invalid DNS payload
+        let invalid_dns = b"not valid dns data";
+        let udp_len = 8 + invalid_dns.len();
+        let ipv4_len = 20 + udp_len;
+        let total_len = 14 + ipv4_len;
+
+        let mut buffer = vec![0u8; total_len];
+
+        {
+            let mut eth = MutableEthernetPacket::new(&mut buffer[..]).unwrap();
+            eth.set_source(MacAddr::new(0x11, 0x22, 0x33, 0x44, 0x55, 0x66));
+            eth.set_destination(MacAddr::new(0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff));
+            eth.set_ethertype(EtherTypes::Ipv4);
+        }
+
+        {
+            let mut ipv4 = MutableIpv4Packet::new(&mut buffer[14..]).unwrap();
+            ipv4.set_version(4);
+            ipv4.set_header_length(5);
+            ipv4.set_total_length(ipv4_len as u16);
+            ipv4.set_next_level_protocol(IpNextHeaderProtocols::Udp);
+            ipv4.set_source(Ipv4Addr::new(192, 168, 1, 100));
+            ipv4.set_destination(Ipv4Addr::new(192, 168, 1, 1));
+        }
+
+        {
+            let mut udp = MutableUdpPacket::new(&mut buffer[34..]).unwrap();
+            udp.set_source(12345);
+            udp.set_destination(53);
+            udp.set_length(udp_len as u16);
+            udp.set_payload(invalid_dns);
+        }
+
+        tx.send(buffer).await.unwrap();
+        drop(tx);
+
+        let result = run_server(rx, handler, sender.clone(), buffer_pool, running).await;
+        assert!(result.is_ok());
+
+        // No response should be sent for malformed DNS
+        assert_eq!(sender.sent_count(), 0);
     }
 }

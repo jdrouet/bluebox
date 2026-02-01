@@ -243,9 +243,9 @@ pub fn parse_arp_packet(frame: &[u8]) -> Option<(ArpOperation, HostInfo)> {
 /// ARP spoofer that maintains network interception.
 pub struct ArpSpoofer<S: PacketSender> {
     config: ArpSpoofConfig,
-    packet_builder: ArpPacketBuilder,
+    pub(crate) packet_builder: ArpPacketBuilder,
     sender: S,
-    arp_table: ArpTable,
+    pub(crate) arp_table: ArpTable,
     gateway_mac: Option<MacAddr>,
 }
 
@@ -435,6 +435,17 @@ pub fn detect_gateway() -> Result<Ipv4Addr> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::network::capture::tests::MockSender;
+
+    fn create_test_config() -> ArpSpoofConfig {
+        ArpSpoofConfig {
+            gateway_ip: Ipv4Addr::new(192, 168, 1, 1),
+            our_ip: Ipv4Addr::new(192, 168, 1, 100),
+            our_mac: MacAddr::new(0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff),
+            spoof_interval: Duration::from_secs(2),
+            restore_on_shutdown: true,
+        }
+    }
 
     #[test]
     fn should_store_and_retrieve_arp_entries() {
@@ -449,15 +460,25 @@ mod tests {
     }
 
     #[test]
-    fn should_build_valid_arp_request_and_gratuitous_packets() {
-        let config = ArpSpoofConfig {
-            gateway_ip: Ipv4Addr::new(192, 168, 1, 1),
-            our_ip: Ipv4Addr::new(192, 168, 1, 100),
-            our_mac: MacAddr::new(0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff),
-            spoof_interval: Duration::from_secs(2),
-            restore_on_shutdown: true,
-        };
+    fn should_return_all_arp_entries() {
+        let table = ArpTable::new();
+        let ip1 = Ipv4Addr::new(192, 168, 1, 10);
+        let mac1 = MacAddr::new(0x11, 0x22, 0x33, 0x44, 0x55, 0x66);
+        let ip2 = Ipv4Addr::new(192, 168, 1, 20);
+        let mac2 = MacAddr::new(0x66, 0x55, 0x44, 0x33, 0x22, 0x11);
 
+        table.insert(ip1, mac1);
+        table.insert(ip2, mac2);
+
+        let all = table.all();
+        assert_eq!(all.len(), 2);
+        assert!(all.contains(&HostInfo { ip: ip1, mac: mac1 }));
+        assert!(all.contains(&HostInfo { ip: ip2, mac: mac2 }));
+    }
+
+    #[test]
+    fn should_build_valid_arp_request_and_gratuitous_packets() {
+        let config = create_test_config();
         let builder = ArpPacketBuilder::new(config.clone());
 
         // Test ARP request
@@ -478,15 +499,47 @@ mod tests {
     }
 
     #[test]
-    fn should_parse_arp_packet_and_extract_host_info() {
-        let config = ArpSpoofConfig {
-            gateway_ip: Ipv4Addr::new(192, 168, 1, 1),
-            our_ip: Ipv4Addr::new(192, 168, 1, 100),
-            our_mac: MacAddr::new(0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff),
-            spoof_interval: Duration::from_secs(2),
-            restore_on_shutdown: true,
-        };
+    fn should_build_spoof_reply_with_gateway_ip_and_our_mac() {
+        let config = create_test_config();
+        let builder = ArpPacketBuilder::new(config.clone());
 
+        let target_ip = Ipv4Addr::new(192, 168, 1, 50);
+        let target_mac = MacAddr::new(0x11, 0x22, 0x33, 0x44, 0x55, 0x66);
+
+        let packet = builder.build_spoof_reply(target_ip, target_mac);
+
+        let eth = EthernetPacket::new(&packet).unwrap();
+        assert_eq!(eth.get_destination(), target_mac);
+        assert_eq!(eth.get_source(), config.our_mac);
+
+        let arp = ArpPacket::new(eth.payload()).unwrap();
+        assert_eq!(arp.get_operation(), ArpOperations::Reply);
+        assert_eq!(arp.get_sender_proto_addr(), config.gateway_ip);
+        assert_eq!(arp.get_sender_hw_addr(), config.our_mac);
+        assert_eq!(arp.get_target_proto_addr(), target_ip);
+        assert_eq!(arp.get_target_hw_addr(), target_mac);
+    }
+
+    #[test]
+    fn should_build_restore_reply_with_real_gateway_mac() {
+        let config = create_test_config();
+        let builder = ArpPacketBuilder::new(config.clone());
+
+        let gateway_mac = MacAddr::new(0x00, 0x11, 0x22, 0x33, 0x44, 0x55);
+        let target_ip = Ipv4Addr::new(192, 168, 1, 50);
+        let target_mac = MacAddr::new(0x11, 0x22, 0x33, 0x44, 0x55, 0x66);
+
+        let packet = builder.build_restore_reply(gateway_mac, target_ip, target_mac);
+
+        let eth = EthernetPacket::new(&packet).unwrap();
+        let arp = ArpPacket::new(eth.payload()).unwrap();
+        assert_eq!(arp.get_sender_hw_addr(), gateway_mac);
+        assert_eq!(arp.get_sender_proto_addr(), config.gateway_ip);
+    }
+
+    #[test]
+    fn should_parse_arp_packet_and_extract_host_info() {
+        let config = create_test_config();
         let builder = ArpPacketBuilder::new(config.clone());
         let packet = builder.build_gratuitous_arp();
 
@@ -494,5 +547,209 @@ mod tests {
         assert_eq!(operation, ArpOperations::Reply);
         assert_eq!(host.ip, config.gateway_ip);
         assert_eq!(host.mac, config.our_mac);
+    }
+
+    #[test]
+    fn should_return_none_when_parsing_non_arp_packet() {
+        // Create a non-ARP Ethernet frame (just zeros with wrong ethertype)
+        let mut buffer = vec![0u8; 64];
+        {
+            let mut ethernet = MutableEthernetPacket::new(&mut buffer).unwrap();
+            ethernet.set_ethertype(EtherTypes::Ipv4); // Not ARP
+        }
+
+        assert!(parse_arp_packet(&buffer).is_none());
+    }
+
+    #[test]
+    fn should_create_arp_spoofer_and_access_arp_table() {
+        let config = create_test_config();
+        let sender = MockSender::new();
+        let spoofer = ArpSpoofer::new(config, sender);
+
+        assert!(spoofer.arp_table().is_empty());
+        assert!(spoofer.gateway_mac().is_none());
+    }
+
+    #[test]
+    fn should_set_and_get_gateway_mac() {
+        let config = create_test_config();
+        let sender = MockSender::new();
+        let mut spoofer = ArpSpoofer::new(config, sender);
+
+        let gateway_mac = MacAddr::new(0x00, 0x11, 0x22, 0x33, 0x44, 0x55);
+        spoofer.set_gateway_mac(gateway_mac);
+
+        assert_eq!(spoofer.gateway_mac(), Some(gateway_mac));
+    }
+
+    #[test]
+    fn should_process_arp_packet_and_update_table() {
+        let config = create_test_config();
+        let sender = MockSender::new();
+        let mut spoofer = ArpSpoofer::new(config, sender);
+
+        // Create an ARP packet from another host
+        let other_config = ArpSpoofConfig {
+            gateway_ip: Ipv4Addr::new(192, 168, 1, 50),
+            our_ip: Ipv4Addr::new(192, 168, 1, 50),
+            our_mac: MacAddr::new(0x11, 0x22, 0x33, 0x44, 0x55, 0x66),
+            spoof_interval: Duration::from_secs(2),
+            restore_on_shutdown: true,
+        };
+        let other_builder = ArpPacketBuilder::new(other_config.clone());
+        let packet = other_builder.build_gratuitous_arp();
+
+        spoofer.process_arp_packet(&packet);
+
+        // Should have added the host to the table
+        assert_eq!(spoofer.arp_table().len(), 1);
+        assert_eq!(
+            spoofer.arp_table().get(&other_config.our_ip),
+            Some(other_config.our_mac)
+        );
+    }
+
+    #[test]
+    fn should_not_add_own_ip_to_arp_table() {
+        let config = create_test_config();
+        let sender = MockSender::new();
+        let mut spoofer = ArpSpoofer::new(config.clone(), sender);
+
+        // Create a packet that appears to be from our own IP
+        let own_config = ArpSpoofConfig {
+            gateway_ip: config.our_ip, // Use our IP as the "gateway" to spoof
+            our_ip: config.our_ip,
+            our_mac: MacAddr::new(0x11, 0x22, 0x33, 0x44, 0x55, 0x66),
+            spoof_interval: Duration::from_secs(2),
+            restore_on_shutdown: true,
+        };
+        let own_builder = ArpPacketBuilder::new(own_config);
+        let own_packet = own_builder.build_gratuitous_arp();
+
+        spoofer.process_arp_packet(&own_packet);
+
+        // Should not add our own IP
+        assert!(spoofer.arp_table().is_empty());
+    }
+
+    #[test]
+    fn should_discover_gateway_mac_from_arp_packet() {
+        let config = create_test_config();
+        let sender = MockSender::new();
+        let mut spoofer = ArpSpoofer::new(config.clone(), sender);
+
+        assert!(spoofer.gateway_mac().is_none());
+
+        // Create an ARP packet from the gateway
+        let gateway_mac = MacAddr::new(0x00, 0x11, 0x22, 0x33, 0x44, 0x55);
+        let gateway_config = ArpSpoofConfig {
+            gateway_ip: config.gateway_ip,
+            our_ip: config.gateway_ip,
+            our_mac: gateway_mac,
+            spoof_interval: Duration::from_secs(2),
+            restore_on_shutdown: true,
+        };
+        let gateway_builder = ArpPacketBuilder::new(gateway_config);
+        let packet = gateway_builder.build_gratuitous_arp();
+
+        spoofer.process_arp_packet(&packet);
+
+        // Should have discovered the gateway MAC
+        assert_eq!(spoofer.gateway_mac(), Some(gateway_mac));
+    }
+
+    #[test]
+    fn should_send_arp_request_to_discover_gateway() {
+        let config = create_test_config();
+        let sender = MockSender::new();
+        let mut spoofer = ArpSpoofer::new(config.clone(), sender.clone());
+
+        spoofer.discover_gateway().unwrap();
+
+        assert_eq!(sender.sent_count(), 1);
+        let sent = sender.last_sent().unwrap();
+        let eth = EthernetPacket::new(&sent).unwrap();
+        let arp = ArpPacket::new(eth.payload()).unwrap();
+        assert_eq!(arp.get_operation(), ArpOperations::Request);
+        assert_eq!(arp.get_target_proto_addr(), config.gateway_ip);
+    }
+
+    #[test]
+    fn should_send_spoof_packets_to_all_known_hosts() {
+        let config = create_test_config();
+        let sender = MockSender::new();
+        let mut spoofer = ArpSpoofer::new(config, sender.clone());
+
+        // Add some hosts to the ARP table
+        let host1_ip = Ipv4Addr::new(192, 168, 1, 10);
+        let host1_mac = MacAddr::new(0x11, 0x22, 0x33, 0x44, 0x55, 0x66);
+        let host2_ip = Ipv4Addr::new(192, 168, 1, 20);
+        let host2_mac = MacAddr::new(0x66, 0x55, 0x44, 0x33, 0x22, 0x11);
+
+        spoofer.arp_table.insert(host1_ip, host1_mac);
+        spoofer.arp_table.insert(host2_ip, host2_mac);
+
+        spoofer.spoof_all().unwrap();
+
+        // Should send: 1 gratuitous + 2 targeted replies
+        assert_eq!(sender.sent_count(), 3);
+    }
+
+    #[test]
+    #[allow(clippy::redundant_clone)] // Need config for assertions below
+    fn should_not_send_spoof_to_gateway_or_self() {
+        let config = create_test_config();
+        let sender = MockSender::new();
+        let mut spoofer = ArpSpoofer::new(config.clone(), sender.clone());
+
+        // Add ourselves and gateway to the ARP table (shouldn't happen normally, but test the guard)
+        spoofer.arp_table.insert(config.our_ip, config.our_mac);
+        spoofer.arp_table.insert(
+            config.gateway_ip,
+            MacAddr::new(0x00, 0x11, 0x22, 0x33, 0x44, 0x55),
+        );
+
+        spoofer.spoof_all().unwrap();
+
+        // Should only send gratuitous ARP (no targeted replies to self or gateway)
+        assert_eq!(sender.sent_count(), 1);
+    }
+
+    #[test]
+    fn should_restore_arp_tables_when_gateway_mac_known() {
+        let config = create_test_config();
+        let sender = MockSender::new();
+        let mut spoofer = ArpSpoofer::new(config, sender.clone());
+
+        // Set gateway MAC and add a host
+        let gateway_mac = MacAddr::new(0x00, 0x11, 0x22, 0x33, 0x44, 0x55);
+        spoofer.set_gateway_mac(gateway_mac);
+
+        let host_ip = Ipv4Addr::new(192, 168, 1, 10);
+        let host_mac = MacAddr::new(0x11, 0x22, 0x33, 0x44, 0x55, 0x66);
+        spoofer.arp_table.insert(host_ip, host_mac);
+
+        spoofer.restore_all().unwrap();
+
+        // Should send restore packet to the host
+        assert_eq!(sender.sent_count(), 1);
+        let sent = sender.last_sent().unwrap();
+        let eth = EthernetPacket::new(&sent).unwrap();
+        let arp = ArpPacket::new(eth.payload()).unwrap();
+        assert_eq!(arp.get_sender_hw_addr(), gateway_mac);
+    }
+
+    #[test]
+    fn should_not_restore_when_gateway_mac_unknown() {
+        let config = create_test_config();
+        let sender = MockSender::new();
+        let mut spoofer = ArpSpoofer::new(config, sender.clone());
+
+        // Don't set gateway MAC
+        spoofer.restore_all().unwrap();
+
+        // Should not send any packets
+        assert_eq!(sender.sent_count(), 0);
     }
 }
