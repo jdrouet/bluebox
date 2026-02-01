@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1](https://github.com/jdrouet/bluebox/compare/v0.1.0...v0.1.1) - 2026-02-01
+
+### Added
+
+- *(release)* add manual workflow trigger, musl builds, and deb packaging
+
+### Fixed
+
+- remove Cargo.lock from gitignore
+
+### Other
+
+- bump hickory-proto from 0.24.4 to 0.25.2 ([#21](https://github.com/jdrouet/bluebox/pull/21))
+- increase code coverage from 82% to 88% ([#24](https://github.com/jdrouet/bluebox/pull/24))
+- bump thiserror from 1.0.69 to 2.0.18 ([#22](https://github.com/jdrouet/bluebox/pull/22))
+- bump metrics-exporter-prometheus from 0.16.2 to 0.18.1 ([#23](https://github.com/jdrouet/bluebox/pull/23))
+- bump moka from 0.12.12 to 0.12.13 ([#20](https://github.com/jdrouet/bluebox/pull/20))
+- bump pnet from 0.34.0 to 0.35.0 ([#19](https://github.com/jdrouet/bluebox/pull/19))
+- bump codecov/codecov-action from 4 to 5 ([#18](https://github.com/jdrouet/bluebox/pull/18))
+- bump actions/checkout from 4 to 6 ([#17](https://github.com/jdrouet/bluebox/pull/17))
+- add dependabot configuration for cargo and github-actions
+- update README with installation instructions for pre-built binaries and deb packages
+- release v0.1.0 ([#15](https://github.com/jdrouet/bluebox/pull/15))
+- allow trigger release binaries manually
+
 ## [0.1.0](https://github.com/jdrouet/bluebox/releases/tag/v0.1.0) - 2026-01-31
 
 ### Added
