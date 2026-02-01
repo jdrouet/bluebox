@@ -234,9 +234,10 @@ mod tests {
         assert_eq!(response.answers().len(), 1);
 
         let answer = &response.answers()[0];
-        match answer.data() {
-            Some(RData::A(a)) => assert_eq!(a.0, Ipv4Addr::LOCALHOST),
-            _ => panic!("Expected A record"),
+        if let Some(aaaa) = answer.data().as_a() {
+            assert_eq!(aaaa.0, Ipv4Addr::LOCALHOST);
+        } else {
+            panic!("Expected A record");
         }
     }
 
@@ -255,9 +256,10 @@ mod tests {
 
         assert_eq!(response.answers().len(), 1);
         let answer = &response.answers()[0];
-        match answer.data() {
-            Some(RData::AAAA(aaaa)) => assert_eq!(aaaa.0, Ipv6Addr::LOCALHOST),
-            _ => panic!("Expected AAAA record"),
+        if let Some(aaaa) = answer.data().as_aaaa() {
+            assert_eq!(aaaa.0, Ipv6Addr::LOCALHOST);
+        } else {
+            panic!("Expected AAAA record");
         }
     }
 }

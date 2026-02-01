@@ -78,9 +78,10 @@ async fn should_resolve_allowed_domain_from_upstream() {
     assert_eq!(response.answers().len(), 1);
 
     let answer = &response.answers()[0];
-    match answer.data() {
-        Some(RData::A(a)) => assert_eq!(a.0, Ipv4Addr::new(93, 184, 216, 34)),
-        _ => panic!("Expected A record"),
+    if let Some(a) = answer.data().as_a() {
+        assert_eq!(a.0, Ipv4Addr::new(93, 184, 216, 34));
+    } else {
+        panic!("Expected A record");
     }
 }
 
@@ -98,9 +99,10 @@ async fn should_return_localhost_for_blocked_domains() {
 
     assert_eq!(response.response_code(), ResponseCode::NoError);
     let answer = &response.answers()[0];
-    match answer.data() {
-        Some(RData::A(a)) => assert_eq!(a.0, Ipv4Addr::LOCALHOST),
-        _ => panic!("Expected A record pointing to localhost"),
+    if let Some(a) = answer.data().as_a() {
+        assert_eq!(a.0, Ipv4Addr::LOCALHOST);
+    } else {
+        panic!("Expected A record pointing to localhost")
     }
 
     // Test wildcard block
@@ -108,9 +110,10 @@ async fn should_return_localhost_for_blocked_domains() {
     let response = handler.handle_query(query).await.unwrap();
 
     let answer = &response.answers()[0];
-    match answer.data() {
-        Some(RData::A(a)) => assert_eq!(a.0, Ipv4Addr::LOCALHOST),
-        _ => panic!("Expected A record pointing to localhost"),
+    if let Some(a) = answer.data().as_a() {
+        assert_eq!(a.0, Ipv4Addr::LOCALHOST);
+    } else {
+        panic!("Expected A record pointing to localhost")
     }
 }
 
@@ -149,17 +152,19 @@ async fn should_return_correct_localhost_for_each_query_type() {
     // A record for blocked domain
     let query_a = create_query("blocked.com", RecordType::A, 1);
     let response_a = handler.handle_query(query_a).await.unwrap();
-    match response_a.answers()[0].data() {
-        Some(RData::A(a)) => assert_eq!(a.0, Ipv4Addr::LOCALHOST),
-        _ => panic!("Expected A record"),
+    if let Some(a) = response_a.answers()[0].data().as_a() {
+        assert_eq!(a.0, Ipv4Addr::LOCALHOST);
+    } else {
+        panic!("Expected A record");
     }
 
     // AAAA record for blocked domain
     let query_aaaa = create_query("blocked.com", RecordType::AAAA, 2);
     let response_aaaa = handler.handle_query(query_aaaa).await.unwrap();
-    match response_aaaa.answers()[0].data() {
-        Some(RData::AAAA(aaaa)) => assert_eq!(aaaa.0, std::net::Ipv6Addr::LOCALHOST),
-        _ => panic!("Expected AAAA record"),
+    if let Some(aaaa) = response_aaaa.answers()[0].data().as_aaaa() {
+        assert_eq!(aaaa.0, std::net::Ipv6Addr::LOCALHOST);
+    } else {
+        panic!("Expected AAAA record")
     }
 }
 
@@ -319,26 +324,29 @@ async fn should_handle_query_with_file_loaded_blocklist() {
     let response = handler.handle_query(query).await.unwrap();
 
     assert_eq!(response.response_code(), ResponseCode::NoError);
-    match response.answers()[0].data() {
-        Some(RData::A(a)) => assert_eq!(a.0, Ipv4Addr::LOCALHOST),
-        _ => panic!("Expected A record pointing to localhost"),
+    if let Some(a) = response.answers()[0].data().as_a() {
+        assert_eq!(a.0, Ipv4Addr::LOCALHOST);
+    } else {
+        panic!("Expected A record pointing to localhost");
     }
 
     // Query a wildcard-blocked domain - should return localhost
     let query = create_query("tracking.ads-from-file.net", RecordType::A, 2);
     let response = handler.handle_query(query).await.unwrap();
 
-    match response.answers()[0].data() {
-        Some(RData::A(a)) => assert_eq!(a.0, Ipv4Addr::LOCALHOST),
-        _ => panic!("Expected A record pointing to localhost"),
+    if let Some(a) = response.answers()[0].data().as_a() {
+        assert_eq!(a.0, Ipv4Addr::LOCALHOST);
+    } else {
+        panic!("Expected A record pointing to localhost");
     }
 
     // Query an allowed domain - should return the resolved IP
     let query = create_query("allowed.example.com", RecordType::A, 3);
     let response = handler.handle_query(query).await.unwrap();
 
-    match response.answers()[0].data() {
-        Some(RData::A(a)) => assert_eq!(a.0, Ipv4Addr::new(93, 184, 216, 34)),
-        _ => panic!("Expected A record from resolver"),
+    if let Some(a) = response.answers()[0].data().as_a() {
+        assert_eq!(a.0, Ipv4Addr::new(93, 184, 216, 34));
+    } else {
+        panic!("Expected A record from resolver");
     }
 }
