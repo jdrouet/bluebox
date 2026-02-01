@@ -15,7 +15,7 @@ pub enum Error {
     Network(#[from] NetworkError),
 
     #[error("DNS protocol error: {0}")]
-    Protocol(#[from] hickory_proto::error::ProtoError),
+    Protocol(#[from] hickory_proto::ProtoError),
 
     #[error("resolver error: {0}")]
     Resolver(String),
