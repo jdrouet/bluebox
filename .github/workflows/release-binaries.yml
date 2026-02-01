@@ -49,9 +49,12 @@ jobs:
           targets: ${{ matrix.target }}
 
       - name: Install cross-compilation tools
+        env:
+          NEEDRESTART_MODE: l
+          DEBIAN_FRONTEND: noninteractive
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu musl-tools musl-dev
+          sudo apt-get install -y --no-install-recommends gcc-aarch64-linux-gnu musl-tools musl-dev
           # Install aarch64 musl cross-compiler
           if [[ "${{ matrix.target }}" == "aarch64-unknown-linux-musl" ]]; then
             wget -q https://musl.cc/aarch64-linux-musl-cross.tgz
