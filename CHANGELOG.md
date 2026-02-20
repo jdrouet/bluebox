@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3](https://github.com/jdrouet/bluebox/compare/v0.1.2...v0.1.3) - 2026-02-20
+
+### Added
+
+- add env variable to load config path
+
+### Fixed
+
+- remove duplicate context from error messages
+
+### Other
+
+- bump criterion from 0.5.1 to 0.8.2 ([#31](https://github.com/jdrouet/bluebox/pull/31))
+- bump anyhow from 1.0.100 to 1.0.101 ([#32](https://github.com/jdrouet/bluebox/pull/32))
+- bump bytes from 1.11.0 to 1.11.1 ([#28](https://github.com/jdrouet/bluebox/pull/28))
+- add workflow to release docker image
+- create dockerfile based on alpine
+- simplify release workflow using cross for musl builds
+- fix binary release
+
 ## [0.1.2](https://github.com/jdrouet/bluebox/compare/v0.1.1...v0.1.2) - 2026-02-01
 
 ### Fixed
