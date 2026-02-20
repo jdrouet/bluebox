@@ -33,6 +33,15 @@ RUN cargo build --release --offline --bin bluebox
 
 FROM alpine:3.23
 
+LABEL org.opencontainers.image.title="bluebox"
+LABEL org.opencontainers.image.description="A fast DNS interceptor and cache for local networks"
+LABEL org.opencontainers.image.source="https://github.com/jdrouet/bluebox"
+LABEL org.opencontainers.image.url="https://github.com/jdrouet/bluebox"
+LABEL org.opencontainers.image.documentation="https://github.com/jdrouet/bluebox"
+LABEL org.opencontainers.image.licenses="MIT"
+LABEL org.opencontainers.image.vendor="jdrouet"
+LABEL org.opencontainers.image.base.name="alpine:3.23"
+
 ENV RUST_LOG=info
 ENV CONFIG_PATH=/etc/bluebox/config.toml
 
