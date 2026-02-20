@@ -59,8 +59,13 @@ A fast, transparent DNS interceptor for local networks. Bluebox acts as a parent
 
 ### Prerequisites
 
+**Native Installation:**
 - Root/sudo privileges (required for raw packet capture and ARP)
-- Linux (Debian/Ubuntu for .deb packages)
+- Linux (Debian/Ubuntu for .deb packages, or any Linux for musl builds)
+
+**Docker Installation:**
+- Docker with `--cap-add=NET_ADMIN` and `--cap-add=NET_RAW` capabilities
+- `--network host` mode to access the host's network interfaces
 
 ### Pre-built Binaries
 
@@ -101,6 +106,151 @@ sudo nano /etc/bluebox/config.toml
 # Enable and start the service
 sudo systemctl enable bluebox
 sudo systemctl start bluebox
+```
+
+### Docker
+
+The easiest way to run Bluebox in a containerized environment:
+
+```bash
+# Pull the latest image
+docker pull ghcr.io/jdrouet/bluebox:latest
+
+# Run with default configuration
+docker run --rm \
+  --cap-add=NET_ADMIN \
+  --cap-add=NET_RAW \
+  --network host \
+  ghcr.io/jdrouet/bluebox:latest
+
+# Run with custom configuration
+docker run --rm \
+  --cap-add=NET_ADMIN \
+  --cap-add=NET_RAW \
+  --network host \
+  -v $(pwd)/config.toml:/etc/bluebox/config.toml:ro \
+  ghcr.io/jdrouet/bluebox:latest
+```
+
+**Important Docker Notes:**
+- `--cap-add=NET_ADMIN` and `--cap-add=NET_RAW` are required for packet capture and ARP spoofing
+- `--network host` is required to access the host's network interfaces
+- Without these permissions, Bluebox cannot intercept DNS queries
+
+#### Docker Compose
+
+Create a `docker-compose.yml`:
+
+```yaml
+version: '3.8'
+
+services:
+  bluebox:
+    image: ghcr.io/jdrouet/bluebox:latest
+    container_name: bluebox
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    volumes:
+      - ./config.toml:/etc/bluebox/config.toml:ro
+      # Optional: cache directory for remote blocklists
+      - bluebox-cache:/var/cache/bluebox
+    environment:
+      - RUST_LOG=info
+      - CONFIG_PATH=/etc/bluebox/config.toml
+    restart: unless-stopped
+
+volumes:
+  bluebox-cache:
+```
+
+**Usage:**
+
+```bash
+# Start the service
+docker-compose up -d
+
+# View logs
+docker-compose logs -f bluebox
+
+# Check status
+docker-compose ps
+
+# Restart after config changes
+docker-compose restart bluebox
+
+# Stop the service
+docker-compose down
+
+# Stop and remove volumes
+docker-compose down -v
+```
+
+**Example with metrics enabled:**
+
+```yaml
+version: '3.8'
+
+services:
+  bluebox:
+    image: ghcr.io/jdrouet/bluebox:latest
+    container_name: bluebox
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    volumes:
+      - ./config.toml:/etc/bluebox/config.toml:ro
+      - bluebox-cache:/var/cache/bluebox
+    environment:
+      - RUST_LOG=info
+      - CONFIG_PATH=/etc/bluebox/config.toml
+    restart: unless-stopped
+    # Expose metrics port (if metrics are enabled in config)
+    # Note: with network_mode: host, this is informational only
+    expose:
+      - "9090"
+
+  # Optional: Add Prometheus for metrics collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    network_mode: host
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    restart: unless-stopped
+
+volumes:
+  bluebox-cache:
+  prometheus-data:
+```
+
+With this setup, create a `prometheus.yml`:
+
+```yaml
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'bluebox'
+    static_configs:
+      - targets: ['localhost:9090']
+```
+
+#### Building the Docker Image
+
+To build the image yourself:
+
+```bash
+docker build -t bluebox:local .
+
+# For multi-architecture builds
+docker buildx build --platform linux/amd64,linux/arm64 -t bluebox:local .
 ```
 
 ### Building from Source
@@ -419,6 +569,39 @@ If you kill Bluebox with `kill -9` instead of Ctrl+C, ARP tables won't be restor
 # Restart their network interface, or
 # Wait for ARP cache to expire (usually 1-5 minutes)
 ```
+
+### Docker: "Operation not permitted" or "Permission denied"
+
+Make sure you're running with the required capabilities:
+```bash
+docker run --cap-add=NET_ADMIN --cap-add=NET_RAW --network host ...
+```
+
+Without these capabilities, Bluebox cannot:
+- Open raw sockets for packet capture
+- Send ARP packets
+- Modify network interfaces
+
+### Docker: "Failed to find network interface"
+
+When using `--network host`, Docker containers have access to the host's network interfaces. If you're specifying an interface in `config.toml`, make sure it exists on the host:
+
+```bash
+# List available interfaces on host
+ip link show
+```
+
+### Docker: Container exits immediately
+
+Check the logs:
+```bash
+docker logs <container-id>
+```
+
+Common issues:
+- Missing required capabilities (`NET_ADMIN`, `NET_RAW`)
+- Invalid configuration file path
+- Interface specified in config doesn't exist
 
 ## License
 
