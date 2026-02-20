@@ -6,6 +6,7 @@
 //! When ARP spoofing is enabled, it transparently intercepts DNS queries from
 //! all devices on the network without requiring client configuration.
 
+use std::borrow::Cow;
 use std::net::Ipv4Addr;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -186,7 +187,10 @@ async fn wait_for_shutdown(
 }
 
 async fn run() -> Result<()> {
-    let config = Config::load("config.toml").context("Failed to load configuration")?;
+    let config_path = std::env::var("CONFIG_PATH")
+        .map(Cow::Owned)
+        .unwrap_or(Cow::Borrowed("config.toml"));
+    let config = Config::load(config_path.as_ref()).context("Failed to load configuration")?;
 
     // Initialize metrics (must be done early, before any metrics are recorded)
     bluebox::metrics::init(&config.metrics).context("Failed to initialize metrics")?;
