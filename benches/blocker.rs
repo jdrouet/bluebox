@@ -1,7 +1,8 @@
 //! Benchmarks for the domain blocker.
 
-use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
+use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use hickory_proto::rr::Name;
+use std::hint::black_box;
 use std::str::FromStr;
 
 use bluebox::dns::Blocker;
