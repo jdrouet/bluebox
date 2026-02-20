@@ -1,8 +1,9 @@
 //! Benchmarks for packet construction.
 
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group, criterion_main};
 use hickory_proto::op::{Message, MessageType, OpCode, ResponseCode};
 use pnet::util::MacAddr;
+use std::hint::black_box;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 use bluebox::network::{BufferPool, PacketBuilder, PacketInfo};
