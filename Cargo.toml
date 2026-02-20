@@ -48,7 +48,7 @@ dirs = "6.0"
 
 [dev-dependencies]
 # Property-based testing
-proptest = "1.4"
+proptest = "1.10"
 
 # Benchmarking
 criterion = { version = "0.8", features = ["html_reports"] }
