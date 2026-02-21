@@ -24,6 +24,12 @@ blocklist = [
     "*.googlesyndication.com",
 ]
 
+# Cache directory for remote blocklists
+# If not specified, uses the platform-specific default:
+# - Linux: ~/.cache/bluebox/blocklists/
+# - macOS: ~/Library/Caches/bluebox/blocklists/
+# blocklist_cache_dir = "/var/cache/bluebox/blocklists"
+
 # External blocklist sources
 # These allow loading blocklists from files or remote URLs
 # Supported formats: "domains" (one domain per line), "hosts" (hosts file format), "adblock" (AdBlock syntax)
@@ -50,12 +56,6 @@ blocklist = [
 # source = { type = "remote", url = "https://adguardteam.github.io/AdGuardSDNSFilter/Filters/filter.txt" }
 # format = "adblock"
 # refresh_interval_hours = 12
-
-# Cache directory for remote blocklists
-# If not specified, uses the platform-specific default:
-# - Linux: ~/.cache/bluebox/blocklists/
-# - macOS: ~/Library/Caches/bluebox/blocklists/
-# blocklist_cache_dir = "/var/cache/bluebox/blocklists"
 
 # Metrics configuration for Prometheus exporter
 [metrics]
