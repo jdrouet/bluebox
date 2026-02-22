@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4](https://github.com/jdrouet/bluebox/compare/v0.1.3...v0.1.4) - 2026-02-22
+
+### Fixed
+
+- *(network)* handle bidirectional ARP forwarding and add e2e tests
+- base config
+
+### Other
+
+- bump tempfile from 3.24.0 to 3.25.0 ([#35](https://github.com/jdrouet/bluebox/pull/35))
+- add docker usage
+- add labels to dockerfile
+
 ## [0.1.3](https://github.com/jdrouet/bluebox/compare/v0.1.2...v0.1.3) - 2026-02-20
 
 ### Added
