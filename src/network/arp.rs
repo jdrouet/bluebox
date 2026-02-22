@@ -277,6 +277,11 @@ impl<S: PacketSender> ArpSpoofer<S> {
         self.gateway_mac
     }
 
+    /// Get the configured gateway IP.
+    pub const fn gateway_ip(&self) -> Ipv4Addr {
+        self.config.gateway_ip
+    }
+
     /// Process an incoming ARP packet and update our table.
     pub fn process_arp_packet(&mut self, frame: &[u8]) {
         if let Some((operation, host)) = parse_arp_packet(frame) {

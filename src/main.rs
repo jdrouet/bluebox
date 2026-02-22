@@ -124,14 +124,35 @@ fn spawn_capture_task(config: CaptureTaskConfig) -> JoinHandle<()> {
                     && let Some(ref spoofer) = config.arp_spoofer
                 {
                     let guard = spoofer.lock();
-                    if let Some(gateway_mac) = guard.gateway_mac() {
+                    let target = forward::resolve_forward_target(
+                        &packet,
+                        config.our_ip,
+                        guard.gateway_ip(),
+                        guard.arp_table(),
+                    );
+
+                    if let Some(target) = target {
                         let mut sender_guard = sender.lock();
-                        let _ = forward::forward_to_gateway(
-                            &packet,
-                            gateway_mac,
-                            config.our_mac,
-                            &mut *sender_guard,
-                        );
+                        match target {
+                            forward::ForwardTarget::Gateway => {
+                                if let Some(gateway_mac) = guard.gateway_mac() {
+                                    let _ = forward::forward_to_gateway(
+                                        &packet,
+                                        gateway_mac,
+                                        config.our_mac,
+                                        &mut *sender_guard,
+                                    );
+                                }
+                            }
+                            forward::ForwardTarget::Client(client_mac) => {
+                                let _ = forward::forward_to_client(
+                                    &packet,
+                                    client_mac,
+                                    config.our_mac,
+                                    &mut *sender_guard,
+                                );
+                            }
+                        }
                     }
                 }
                 continue;

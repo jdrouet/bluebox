@@ -13,8 +13,16 @@ use pnet::packet::udp::UdpPacket;
 use pnet::util::MacAddr;
 use tracing::debug;
 
+use super::arp::ArpTable;
 use super::capture::PacketSender;
 use crate::error::Result;
+
+/// Where a captured non-DNS packet should be forwarded.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ForwardTarget {
+    Gateway,
+    Client(MacAddr),
+}
 
 /// Determines if a packet should be forwarded to the real gateway.
 ///
@@ -51,6 +59,33 @@ pub fn should_forward(frame: &[u8], our_ip: Ipv4Addr) -> bool {
 
     // Forward everything else
     true
+}
+
+/// Determines where a captured packet should be forwarded.
+///
+/// Returns:
+/// - `None` for packets that should not be forwarded (DNS queries or own traffic)
+/// - `Some(ForwardTarget::Client)` for gateway/internet responses to known clients
+/// - `Some(ForwardTarget::Gateway)` for everything else that should transit to gateway
+pub fn resolve_forward_target(
+    frame: &[u8],
+    our_ip: Ipv4Addr,
+    gateway_ip: Ipv4Addr,
+    arp_table: &ArpTable,
+) -> Option<ForwardTarget> {
+    if !should_forward(frame, our_ip) {
+        return None;
+    }
+
+    if let Some(dest_ip) = get_destination_ip(frame)
+        && dest_ip != our_ip
+        && dest_ip != gateway_ip
+        && let Some(client_mac) = arp_table.get(&dest_ip)
+    {
+        return Some(ForwardTarget::Client(client_mac));
+    }
+
+    Some(ForwardTarget::Gateway)
 }
 
 /// Forwards a packet to the real gateway by rewriting the destination MAC.
@@ -183,6 +218,26 @@ mod tests {
         // Packets from ourselves should not be forwarded
         let own_packet = build_test_packet(443, our_ip);
         assert!(!should_forward(&own_packet, our_ip));
+    }
+
+    #[test]
+    fn should_route_gateway_responses_to_known_client() {
+        let our_ip = Ipv4Addr::new(192, 168, 1, 100);
+        let gateway_ip = Ipv4Addr::new(192, 168, 1, 1);
+        let client_ip = Ipv4Addr::new(192, 168, 1, 50);
+        let client_mac = MacAddr::new(0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff);
+
+        let arp_table = ArpTable::new();
+        arp_table.insert(client_ip, client_mac);
+
+        let mut packet = build_test_packet(443, Ipv4Addr::new(8, 8, 8, 8));
+        {
+            let mut ipv4 = MutableIpv4Packet::new(&mut packet[14..]).unwrap();
+            ipv4.set_destination(client_ip);
+        }
+
+        let target = resolve_forward_target(&packet, our_ip, gateway_ip, &arp_table);
+        assert_eq!(target, Some(ForwardTarget::Client(client_mac)));
     }
 
     #[test]
