@@ -27,7 +27,7 @@ serde = { version = "1.0", features = ["derive"] }
 toml = "1.0"
 
 # Async runtime
-tokio = { version = "1.38", features = ["full"] }
+tokio = { version = "1.50", features = ["full"] }
 
 # Logging/Tracing
 tracing = "0.1"
